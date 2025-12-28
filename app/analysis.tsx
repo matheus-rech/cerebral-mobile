@@ -5,7 +5,7 @@ import * as Haptics from "expo-haptics";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { MRIImageViewer } from "@/components/mri-image-viewer";
+import { MRIViewerEnhanced } from "@/components/mri-viewer-enhanced";
 import { AnalysisReportCard } from "@/components/analysis-report-card";
 import { EmergencyAlert } from "@/components/emergency-alert";
 import { useColors } from "@/hooks/use-colors";
@@ -152,8 +152,11 @@ export default function AnalysisScreen() {
         {!report ? (
           <View className="flex-1">
             {/* Image Viewer */}
-            <View className="h-80 bg-black">
-              <MRIImageViewer imageUri={params.imageUri} />
+            <View className="h-96 bg-black">
+              <MRIViewerEnhanced 
+                imageUri={params.imageUri}
+                showWindowingControls={true}
+              />
             </View>
 
             {/* Analyze Button */}
