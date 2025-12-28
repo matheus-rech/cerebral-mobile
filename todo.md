@@ -97,3 +97,28 @@
 - [ ] Support multi-slice DICOM series (advanced)
 - [ ] Create dedicated DICOM viewer screen
 - [ ] Test with real DICOM files from PACS systems
+
+## MONAI Integration
+- [x] Install MONAI and dependencies in Python backend
+- [x] Create MONAI-based preprocessing pipeline
+- [x] Implement MONAI transforms for medical images
+- [x] Add MONAI data loaders for NIfTI and DICOM
+- [x] Test MONAI with sample brain MRI data
+- [x] Add MONAI model inference endpoint
+- [x] Create comprehensive test suite
+- [x] Verify all 4 tests pass successfully
+
+## SynthSeg Integration
+- [x] Research SynthSeg capabilities (chosen over FastSurfer)
+- [x] Install SegResNet model architecture
+- [x] Create SynthSeg-style segmentation pipeline
+- [x] Add brain structure labeling (32 FreeSurfer regions)
+- [x] Implement volumetric analysis with mm³ and ml units
+- [x] Generate colored segmentation visualizations
+- [x] Create API endpoints (/segment, /structures, /info)
+- [x] Test service initialization and health checks
+- [x] Add sliding window inference for large volumes
+- [x] Support multi-contrast MRI (T1, T2, FLAIR)
+- [ ] Download pretrained SynthSeg weights (optional)
+- [ ] Connect to mobile app frontend
+- [ ] Test end-to-end with real MRI scans

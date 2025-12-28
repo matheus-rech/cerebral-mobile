@@ -1,6 +1,29 @@
-flask==3.0.0
-flask-cors==4.0.0
-pillow==10.1.0
-numpy==1.24.3
-scipy==1.11.4
-nibabel==5.2.0
+# CEREBRAL ML Backend Requirements
+
+# Core deep learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# MONAI for medical image processing
+monai[all]>=1.3.0
+
+# Medical imaging formats
+nibabel>=5.2.0
+pydicom>=2.4.0
+
+# Scientific computing
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Image processing
+pillow>=10.1.0
+
+# Web framework
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# HTTP client
+requests>=2.31.0
+
+# Optional: SynthSeg (requires FreeSurfer 7.3+)
+# Install separately: https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall
