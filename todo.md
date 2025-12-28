@@ -137,3 +137,26 @@
 - [x] Test service initialization and health checks
 - [ ] Test with real MRI scans containing lesions
 - [ ] Integrate with mobile app frontend
+
+## Multi-Slice 3D Lesion Tracking
+- [x] Implement 3D volume processing for entire MRI scans
+- [x] Process all slices (axial, coronal, sagittal) with UNet
+- [x] Track lesions across consecutive slices
+- [x] Calculate 3D lesion volumes (mm³ and ml)
+- [x] Implement lesion matching algorithm across slices (distance-based)
+- [x] Generate 3D lesion maps with slice tracking
+- [x] Create volumetric statistics (total lesion load)
+- [x] Calculate lesion load percentage
+- [x] Implement severity classification for 3D lesions
+
+## Longitudinal Analysis
+- [x] Store historical analysis results (JSON format)
+- [x] Compare lesion load across time points
+- [x] Calculate lesion change metrics (count, volume, percentage)
+- [x] Generate progression reports
+- [x] Track trends over time (stable/improving/worsening)
+- [x] Add statistical analysis (lesion counts, volumes)
+- [x] Implement status detection (stable <10%, improving/worsening)
+- [x] Create longitudinal reports with recommendations
+- [x] Add patient-specific data storage
+- [x] API endpoint for retrieving longitudinal data
