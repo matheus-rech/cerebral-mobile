@@ -71,3 +71,15 @@
 - [ ] Add model caching and optimization
 - [x] Connect mobile app to Python ML backend
 - [ ] Test end-to-end deep learning pipeline
+
+## 3D Visualization (NiiVue)
+- [x] Install @niivue/niivue package
+- [x] Create 3D viewer component with WebGL support
+- [x] Add MRI volume rendering
+- [x] Implement segmentation overlay in 3D
+- [x] Add interactive controls (rotate, zoom, pan)
+- [x] Implement slice navigation (axial, coronal, sagittal)
+- [x] Add colormap selection for different contrasts
+- [x] Create 3D view screen in navigation
+- [x] Add crosshair and coordinate display
+- [x] Integrate with analysis workflow

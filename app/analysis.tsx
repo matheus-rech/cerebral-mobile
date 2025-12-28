@@ -200,7 +200,58 @@ export default function AnalysisScreen() {
             </View>
           </View>
         ) : (
-          <AnalysisReportCard report={report} />
+          <View className="gap-4">
+            <AnalysisReportCard report={report} />
+            
+            {/* Action Buttons */}
+            <View className="px-6 gap-3">
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: '/viewer-3d',
+                    params: {
+                      imageUri: params.imageUri,
+                      title: 'MRI 3D Visualization',
+                    },
+                  });
+                }}
+                style={({ pressed }) => ({
+                  opacity: pressed ? 0.7 : 1,
+                  transform: [{ scale: pressed ? 0.97 : 1 }],
+                })}
+              >
+                <View className="bg-primary rounded-2xl p-4 items-center">
+                  <Text className="text-lg font-bold text-background">
+                    🧠 View in 3D (NiiVue)
+                  </Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: '/segmentation',
+                    params: {
+                      imageUri: params.imageUri,
+                      analysisId: report.id,
+                    },
+                  });
+                }}
+                style={({ pressed }) => ({
+                  opacity: pressed ? 0.7 : 1,
+                  transform: [{ scale: pressed ? 0.97 : 1 }],
+                })}
+              >
+                <View className="bg-surface rounded-2xl p-4 items-center border border-border">
+                  <Text className="text-lg font-bold text-foreground">
+                    🔬 View Segmentation
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+          </View>
         )}
       </View>
     </ScreenContainer>
