@@ -160,3 +160,54 @@
 - [x] Create longitudinal reports with recommendations
 - [x] Add patient-specific data storage
 - [x] API endpoint for retrieving longitudinal data
+
+## MedSAM2 Integration (Bowang Lab)
+- [x] Install MedSAM2 architecture
+- [x] Create MedSAM2 service (port 5005)
+- [x] Implement point prompt segmentation (tap to segment)
+- [x] Implement bounding box prompt segmentation
+- [x] Add multi-prompt refinement (add/remove regions)
+- [x] Support 2D slice segmentation
+- [x] Support 3D volume segmentation
+- [x] Generate high-quality masks for medical structures
+- [x] API endpoints (/segment, /segment-3d, /health, /info)
+- [x] Test service initialization and health checks
+- [ ] Download official pretrained weights from bowang-lab/MedSAM2
+- [ ] Test with real brain MRI, tumors, lesions
+
+## SAM3 Integration (Meta/Facebook)
+- [x] Install SAM3 architecture
+- [x] Create SAM3 service (port 5006)
+- [x] Implement point-based segmentation (single click)
+- [x] Implement box-based segmentation (drag to draw)
+- [x] Add text prompt segmentation ("segment the tumor")
+- [x] Support zero-shot object detection
+- [x] Generate segmentation confidence scores
+- [x] API endpoints (/segment-point, /segment-box, /segment-text)
+- [x] Test service initialization and health checks
+- [ ] Download official pretrained weights from facebook/sam3
+- [ ] Implement CLIP-based text encoding for better text prompts
+- [ ] Test with various brain structures
+
+## Interactive Prompting UI
+- [x] Create interactive segmentation screen
+- [x] Add tap/click gesture for point prompts
+- [x] Add drag gesture for bounding box drawing
+- [x] Implement text input for natural language prompts
+- [x] Display real-time segmentation results
+- [x] Add mask overlay visualization
+- [x] Show segmentation confidence scores
+- [x] Add undo functionality
+- [x] Add clear all functionality
+- [x] Connect to MedSAM2 and SAM3 services
+- [x] Add interactive segmentation button to analysis screen
+- [ ] Implement adjustable mask opacity slider
+- [ ] Save segmentation masks to history
+- [ ] Export masks as PNG/NIfTI
+
+## Multi-Model Consensus
+- [ ] Combine UNet + MedSAM2 + SAM3 predictions
+- [ ] Calculate consensus masks (majority voting)
+- [ ] Display confidence heatmaps
+- [ ] Allow user to select preferred model
+- [ ] Generate ensemble reports
