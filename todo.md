@@ -248,20 +248,26 @@
 - [ ] Add export comparison report as PDF
 
 ## Model Selection and Configuration
-- [ ] Create model selection screen before analysis
-- [ ] Add checkboxes to enable/disable individual models
-- [ ] Show model descriptions and use cases
-- [ ] Add model-specific parameter configuration
-- [ ] UNet: confidence threshold, lesion size filter
-- [ ] MedSAM2: prompt type (point/box/text), refinement iterations
-- [ ] SAM3: prompt mode, confidence threshold
-- [ ] SynthSeg: structure selection, volumetric units
-- [ ] Save model preferences to AsyncStorage
-- [ ] Add "Quick Presets" (All Models, Lesion Detection Only, Brain Structures Only)
-- [ ] Show selected models count in UI
-- [ ] Add model info cards with technical details
-- [ ] Display model badges throughout the app
-- [ ] Add "Configure Models" button to analysis workflow
+- [x] Create model selection screen before analysis
+- [x] Add checkboxes to enable/disable individual models
+- [x] Show model descriptions and use cases
+- [x] Add model-specific parameter configuration
+- [x] UNet: confidence threshold, min/max lesion size filter
+- [x] MedSAM2: prompt type (point/box/auto), refinement iterations, confidence threshold
+- [x] SAM3: prompt mode (point/box/text), zero-shot detection, confidence threshold
+- [x] SynthSeg: volumetric units (mm³/ml), subcortical/cortical region selection
+- [x] Save model preferences to AsyncStorage
+- [x] Add "Quick Presets" (All Models, Lesion Detection Only, Brain Structures Only, Interactive Segmentation)
+- [x] Show selected models count in UI
+- [x] Add model info cards with technical details (parameters, inference time)
+- [x] Display model icons and colors throughout the app
+- [x] Add "Configure Models" button to settings screen
+- [x] Implement slider controls for numeric parameters
+- [x] Implement toggle buttons for categorical parameters
+- [x] Add parameter descriptions and help text
+- [x] Create model configuration storage service
+- [x] Write comprehensive unit tests (23 tests passing)
+- [x] Integrate @react-native-community/slider package
 
 ## Remove Mock Data and Implement Real Models
 - [x] Remove all mock implementations from vision-analyzer service

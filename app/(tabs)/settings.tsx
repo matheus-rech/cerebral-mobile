@@ -1,5 +1,6 @@
 import { ScrollView, Text, View, Pressable, Alert, Switch } from "react-native";
 import { useState, useEffect } from "react";
+import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
 import { ScreenContainer } from "@/components/screen-container";
@@ -9,6 +10,7 @@ import type { AppSettings } from "@/services/storage";
 
 export default function SettingsScreen() {
   const colors = useColors();
+  const router = useRouter();
   const [settings, setSettings] = useState<AppSettings>({
     autoSaveHistory: true,
     darkMode: false,
@@ -74,6 +76,28 @@ export default function SettingsScreen() {
           <View className="gap-2">
             <Text className="text-3xl font-bold text-foreground">Settings</Text>
             <Text className="text-sm text-muted">Configure app preferences</Text>
+          </View>
+
+          {/* Model Configuration */}
+          <View className="gap-4">
+            <Text className="text-lg font-bold text-foreground">Models</Text>
+
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/model-config');
+              }}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            >
+              <View className="bg-surface rounded-2xl p-4 border border-border">
+                <Text className="text-base font-semibold text-foreground mb-1">
+                  🧠 Model Configuration
+                </Text>
+                <Text className="text-sm text-muted">
+                  Select models and adjust parameters for analysis
+                </Text>
+              </View>
+            </Pressable>
           </View>
 
           {/* Analysis Settings */}
