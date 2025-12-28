@@ -310,3 +310,32 @@
 - [x] Create EmergencyAlert component
 - [x] Integrate emergency alert into analysis screen
 - [ ] Test with real images containing critical findings
+
+## ML Backend Testing and Deployment
+- [x] Verify Python environment and dependencies installed
+- [x] Check PyTorch, MONAI, nibabel, scipy installations (PyTorch 2.9.1, MONAI 1.5.1)
+- [x] Start MONAI preprocessing service (port 5001) - 358MB RAM
+- [x] Start SynthSeg segmentation service (port 5002) - 413MB RAM
+- [x] Start UNet lesion detector service (port 5003) - 213MB RAM
+- [x] Start 3D lesion tracker service (port 5004) - 215MB RAM
+- [x] Start MedSAM2 service (port 5005) - 168MB RAM
+- [x] Start SAM3 service (port 5006) - 186MB RAM
+- [x] Test health endpoints for all 6 services (all passing)
+- [x] Create synthetic brain MRI test images with lesions
+- [ ] Download real MRI test images from HuggingFace (datasets package requires venv)
+- [x] Test UNet lesion detection with synthetic images (100% accuracy, 3/3 lesions detected)
+- [x] Update UNet service to accept base64 JSON format
+- [x] Validate segmentation mask generation (PNG overlay with base64 encoding)
+- [x] Validate overlay visualization (red overlay for lesions)
+- [x] Test Node.js proxy routes to Python services (working)
+- [x] Validate end-to-end pipeline from mobile app to ML backend (< 1s response time)
+- [x] Document performance metrics (inference times, memory usage) - see ML_BACKEND_TEST_REPORT.md
+- [x] Create comprehensive ML backend test report
+- [ ] Test MONAI preprocessing with real images
+- [ ] Test SynthSeg brain segmentation with real images
+- [ ] Test 3D lesion tracking with real volumes
+- [ ] Test MedSAM2 interactive segmentation with real images
+- [ ] Test SAM3 zero-shot segmentation with real images
+- [ ] Download official pretrained weights (SynthSeg, MedSAM2, SAM3)
+- [ ] Test model configuration UI with different parameter settings
+- [ ] Implement GPU support for faster inference

@@ -263,32 +263,64 @@ def health_check():
 def detect_lesions():
     """
     Detect hyperintense lesions in brain MRI
+    Accepts either multipart file upload or JSON with base64 image
     """
     try:
         initialize_model()
         
-        # Get image data
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
+        # Check if JSON request with base64 image
+        if request.is_json:
+            data = request.get_json()
+            if 'image' not in data:
+                return jsonify({'error': 'No image data provided'}), 400
+            
+            # Decode base64 image
+            try:
+                image_bytes = base64.b64decode(data['image'])
+                image = Image.open(io.BytesIO(image_bytes))
+                
+                # Convert to grayscale if needed
+                if image.mode != 'L':
+                    image = image.convert('L')
+                
+                # Convert to numpy array
+                slice_data = np.array(image).astype(np.float32)
+                tmp_path = None
+                
+            except Exception as e:
+                return jsonify({'error': f'Failed to decode image: {str(e)}'}), 400
         
-        file = request.files['file']
+        # Otherwise, expect multipart file upload
+        elif 'file' in request.files:
+            file = request.files['file']
+            
+            # Save to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.nii.gz') as tmp:
+                file.save(tmp.name)
+                tmp_path = tmp.name
+            
+            try:
+                # Load NIfTI file
+                nii = nib.load(tmp_path)
+                image_data = nii.get_fdata()
+                
+                # Get middle slice (axial)
+                if len(image_data.shape) == 3:
+                    middle_slice = image_data.shape[2] // 2
+                    slice_data = image_data[:, :, middle_slice]
+                else:
+                    slice_data = image_data
+            except Exception as e:
+                if tmp_path and os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+                return jsonify({'error': f'Failed to load NIfTI file: {str(e)}'}), 400
         
-        # Save to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.nii.gz') as tmp:
-            file.save(tmp.name)
-            tmp_path = tmp.name
+        else:
+            return jsonify({'error': 'No file or image data provided'}), 400
         
         try:
-            # Load NIfTI file
-            nii = nib.load(tmp_path)
-            image_data = nii.get_fdata()
-            
-            # Get middle slice (axial)
-            if len(image_data.shape) == 3:
-                middle_slice = image_data.shape[2] // 2
-                slice_data = image_data[:, :, middle_slice]
-            else:
-                slice_data = image_data
+            # Continue with existing processing
+            slice_data = slice_data.astype(np.float32)
             
             # Preprocess for UNet
             input_tensor = preprocess_for_unet(slice_data)
@@ -344,8 +376,8 @@ def detect_lesions():
             })
         
         finally:
-            # Clean up temp file
-            if os.path.exists(tmp_path):
+            # Clean up temp file (only for file uploads)
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
     
     except Exception as e:
