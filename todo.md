@@ -246,3 +246,51 @@
 - [x] Synchronize mask overlays with base image transforms
 - [x] Test synchronized gestures across all viewports
 - [ ] Add export comparison report as PDF
+
+## Model Selection and Configuration
+- [ ] Create model selection screen before analysis
+- [ ] Add checkboxes to enable/disable individual models
+- [ ] Show model descriptions and use cases
+- [ ] Add model-specific parameter configuration
+- [ ] UNet: confidence threshold, lesion size filter
+- [ ] MedSAM2: prompt type (point/box/text), refinement iterations
+- [ ] SAM3: prompt mode, confidence threshold
+- [ ] SynthSeg: structure selection, volumetric units
+- [ ] Save model preferences to AsyncStorage
+- [ ] Add "Quick Presets" (All Models, Lesion Detection Only, Brain Structures Only)
+- [ ] Show selected models count in UI
+- [ ] Add model info cards with technical details
+- [ ] Display model badges throughout the app
+- [ ] Add "Configure Models" button to analysis workflow
+
+## Remove Mock Data and Implement Real Models
+- [ ] Remove all mock implementations from vision-analyzer service
+- [ ] Remove mock data from segmentation service
+- [ ] Connect mobile app directly to Python ML backend services
+- [ ] Implement real UNet inference (port 5003)
+- [ ] Implement real MedSAM2 inference (port 5005)
+- [ ] Implement real SAM3 inference (port 5006)
+- [ ] Implement real SynthSeg inference (port 5001)
+- [ ] Implement real 3D lesion tracking (port 5004)
+- [ ] Test with actual HuggingFace dataset images
+- [ ] Verify all models return real predictions
+- [ ] Add error handling for ML backend unavailable
+- [ ] Add loading states during model inference
+
+## Critical Finding Detection
+- [x] Enhance Claude Vision prompt with emergency checklist
+- [x] Add midline shift detection and measurement
+- [x] Add mass effect detection
+- [x] Add hemorrhage detection (acute, subacute, chronic)
+- [x] Add herniation syndrome detection (uncal, subfalcine, tonsillar)
+- [x] Add hydrocephalus detection
+- [x] Add large vessel occlusion detection
+- [x] Implement severity flagging (normal, abnormal, CRITICAL)
+- [x] Add red alert UI for critical findings
+- [x] Create structured emergency findings section in report
+- [x] Add measurement display for midline shift (mm)
+- [x] Add "REQUIRES IMMEDIATE ATTENTION" banner
+- [x] Update types to include EmergencyFinding interface
+- [x] Create EmergencyAlert component
+- [x] Integrate emergency alert into analysis screen
+- [ ] Test with real images containing critical findings

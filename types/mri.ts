@@ -17,8 +17,17 @@ export interface AnatomicalFinding {
   location?: string;
 }
 
+export interface EmergencyFinding {
+  finding: string;
+  description: string;
+  measurement?: string;
+  urgency: 'immediate' | 'urgent' | 'routine';
+}
+
 export interface MRIAnalysisReport {
   id: string;
+  severity: 'normal' | 'abnormal' | 'CRITICAL';
+  emergencyFindings: EmergencyFinding[];
   modality: MRIModality;
   view: MRIView;
   anatomicalFindings: AnatomicalFinding[];

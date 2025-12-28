@@ -95,6 +95,8 @@ export function generateMockAnalysis(imageUri: string): MRIAnalysisReport {
 
   const report: MRIAnalysisReport = {
     id: `analysis-${Date.now()}`,
+    severity: hasAbnormalities ? 'abnormal' : 'normal',
+    emergencyFindings: [],
     modality: 'T2-weighted' as MRIModality,
     view: 'Axial' as MRIView,
     anatomicalFindings: findings,

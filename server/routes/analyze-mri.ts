@@ -21,8 +21,17 @@ interface AnatomicalFinding {
   location?: string;
 }
 
+interface EmergencyFinding {
+  finding: string;
+  description: string;
+  measurement?: string;
+  urgency: 'immediate' | 'urgent' | 'routine';
+}
+
 interface MRIAnalysisReport {
   id: string;
+  severity: 'normal' | 'abnormal' | 'CRITICAL';
+  emergencyFindings: EmergencyFinding[];
   modality: string;
   view: string;
   anatomicalFindings: AnatomicalFinding[];
@@ -100,24 +109,40 @@ router.post('/analyze-mri', async (req, res) => {
             },
             {
               type: 'text',
-              text: `You are a radiologist analyzing a brain MRI scan. Please provide a detailed structured analysis including:
+              text: `You are an expert neuroradiologist analyzing a brain MRI scan. **CRITICAL: Check for EMERGENCY FINDINGS first before anything else.**
 
-1. **Modality Detection**: Identify the MRI sequence type (T1-weighted, T2-weighted, FLAIR, or T1+Gd)
-2. **View/Plane**: Identify the imaging plane (Axial, Coronal, or Sagittal)
-3. **Anatomical Findings**: For each major brain structure, provide:
-   - Structure name
-   - Observation
-   - Status (normal, abnormal, or uncertain)
-   - Confidence level (0-1)
-   - Location if applicable
+**EMERGENCY FINDINGS CHECKLIST (check EVERY item):**
+1. **Midline Shift**: Measure any deviation of midline structures (septum pellucidum, 3rd ventricle) from center. Report in millimeters. >5mm is significant, >10mm is critical.
+2. **Mass Effect**: Look for compression of ventricles, sulci, or displacement of brain structures
+3. **Herniation**: Check for uncal herniation, subfalcine herniation, tonsillar herniation
+4. **Acute Hemorrhage**: Look for hyperdense areas (bright on T1, dark on T2)
+5. **Hydrocephalus**: Check for enlarged ventricles
+6. **Large Vessel Occlusion**: Look for absent flow voids in major arteries
+7. **Edema**: Look for abnormal hyperintensity suggesting vasogenic or cytotoxic edema
 
-4. **Overall Impression**: A summary of the findings
-5. **Differential Diagnosis**: If abnormalities are present, list possible diagnoses
-6. **Recommendations**: Clinical recommendations based on findings
-7. **Quality Score**: Image quality assessment (0-1)
+Provide a detailed structured analysis including:
+
+1. **Severity Assessment**: Classify as "normal", "abnormal", or "CRITICAL"
+2. **Emergency Findings**: List any life-threatening findings requiring immediate attention
+3. **Modality Detection**: Identify the MRI sequence type (T1-weighted, T2-weighted, FLAIR, or T1+Gd)
+4. **View/Plane**: Identify the imaging plane (Axial, Coronal, or Sagittal)
+5. **Anatomical Findings**: For each major brain structure
+6. **Overall Impression**: A summary of the findings
+7. **Differential Diagnosis**: If abnormalities are present, list possible diagnoses
+8. **Recommendations**: Clinical recommendations based on findings
+9. **Quality Score**: Image quality assessment (0-1)
 
 Please respond in JSON format with the following structure:
 {
+  "severity": "normal|abnormal|CRITICAL",
+  "emergencyFindings": [
+    {
+      "finding": "finding name",
+      "description": "detailed description",
+      "measurement": "quantitative measurement if applicable (e.g., 8mm midline shift)",
+      "urgency": "immediate|urgent|routine"
+    }
+  ],
   "modality": "T1-weighted|T2-weighted|FLAIR|T1+Gd",
   "view": "Axial|Coronal|Sagittal",
   "anatomicalFindings": [
@@ -159,6 +184,8 @@ Please respond in JSON format with the following structure:
     // Construct the analysis report
     const report: MRIAnalysisReport = {
       id: `analysis-${Date.now()}`,
+      severity: analysisData.severity || 'normal',
+      emergencyFindings: analysisData.emergencyFindings || [],
       modality: analysisData.modality || 'T2-weighted',
       view: analysisData.view || 'Axial',
       anatomicalFindings: analysisData.anatomicalFindings || [],

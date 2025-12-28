@@ -7,6 +7,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { MRIImageViewer } from "@/components/mri-image-viewer";
 import { AnalysisReportCard } from "@/components/analysis-report-card";
+import { EmergencyAlert } from "@/components/emergency-alert";
 import { useColors } from "@/hooks/use-colors";
 import { analyzeMRIImage, generateMockAnalysis } from "@/services/vision-analyzer";
 import { saveAnalysisToHistory } from "@/services/storage";
@@ -201,6 +202,12 @@ export default function AnalysisScreen() {
           </View>
         ) : (
           <View className="gap-4">
+            {/* Emergency Findings Alert */}
+            <EmergencyAlert 
+              findings={report.emergencyFindings}
+              severity={report.severity}
+            />
+            
             <AnalysisReportCard report={report} />
             
             {/* Action Buttons */}
