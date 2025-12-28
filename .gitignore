@@ -60,3 +60,17 @@ Thumbs.db
 *.tgz
 *.tar.gz
 .cache/
+
+# ML Model Weights (large files, download separately)
+ml-backend/weights/
+*.h5
+*.pth
+*.ckpt
+*.safetensors
+
+# ML Model Weights (large files, download separately)
+ml-backend/weights/
+*.h5
+*.pth
+*.ckpt
+*.safetensors
