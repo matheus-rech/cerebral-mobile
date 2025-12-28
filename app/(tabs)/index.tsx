@@ -6,9 +6,11 @@ import * as Haptics from "expo-haptics";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { DICOMFilePicker } from "@/components/dicom-file-picker";
 import { useColors } from "@/hooks/use-colors";
 import { loadRandomSample, AVAILABLE_DATASETS } from "@/services/huggingface";
 import type { MRIImage } from "@/types/mri";
+import type { DICOMImage } from "@/services/dicom-parser";
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -42,6 +44,24 @@ export default function HomeScreen() {
     } finally {
       setLoading(false);
       setLoadingDataset(null);
+    }
+  };
+
+  const handleDICOMParsed = (dicomImage: DICOMImage) => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      // Navigate to analysis screen with DICOM image
+      router.push({
+        pathname: "/analysis",
+        params: {
+          imageUri: dicomImage.dataUrl,
+          source: "dicom",
+          patientInfo: JSON.stringify(dicomImage.metadata),
+        },
+      });
+    } catch (error) {
+      console.error("Error handling DICOM:", error);
     }
   };
 
@@ -128,6 +148,9 @@ export default function HomeScreen() {
                 </View>
               </View>
             </Pressable>
+
+            {/* DICOM File Upload */}
+            <DICOMFilePicker onDICOMParsed={handleDICOMParsed} />
 
             {/* Dataset Cards */}
             <Text className="text-lg font-semibold text-foreground mt-2">

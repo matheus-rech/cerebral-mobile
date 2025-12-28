@@ -83,3 +83,17 @@
 - [x] Create 3D view screen in navigation
 - [x] Add crosshair and coordinate display
 - [x] Integrate with analysis workflow
+
+## DICOM Integration
+- [x] Install DICOM parsing libraries (dcmjs, cornerstone)
+- [x] Create DICOM file picker component
+- [x] Implement DICOM metadata extraction
+- [x] Add DICOM to NIfTI conversion (basic)
+- [x] Extract patient information from DICOM tags
+- [x] Add DICOM validation and error handling
+- [x] Update upload flow to support DICOM files
+- [x] Add DICOM file type detection
+- [x] Create window/level adjustment functionality
+- [ ] Support multi-slice DICOM series (advanced)
+- [ ] Create dedicated DICOM viewer screen
+- [ ] Test with real DICOM files from PACS systems
