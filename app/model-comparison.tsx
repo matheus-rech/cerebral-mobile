@@ -220,6 +220,53 @@ export default function ModelComparisonScreen() {
           />
         </View>
 
+        {/* Combined Overlay View */}
+        {results.length > 0 && (
+          <View className="mb-4">
+            <Text className="text-lg font-semibold text-foreground mb-2">
+              All Models Combined
+            </Text>
+            <View className="relative bg-black rounded-lg overflow-hidden">
+              <Image
+                source={{ uri: params.imageUri }}
+                className="w-full h-64"
+                resizeMode="contain"
+              />
+              {results.map((result) =>
+                visibleModels.has(result.model) ? (
+                  <Image
+                    key={result.model}
+                    source={{ uri: result.maskUri }}
+                    className="absolute w-full h-full opacity-30"
+                    resizeMode="contain"
+                    style={{ tintColor: getModelColor(result.model) }}
+                  />
+                ) : null
+              )}
+            </View>
+            <View className="flex-row flex-wrap gap-2 mt-2">
+              {results.map((result) => (
+                <View
+                  key={result.model}
+                  className="flex-row items-center gap-1 px-2 py-1 rounded"
+                  style={{ backgroundColor: getModelColor(result.model) + '20' }}
+                >
+                  <View
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: getModelColor(result.model) }}
+                  />
+                  <Text
+                    className="text-xs font-semibold"
+                    style={{ color: getModelColor(result.model) }}
+                  >
+                    {result.model}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Results Grid */}
         {results.length > 0 && (
           <>
@@ -251,21 +298,22 @@ export default function ModelComparisonScreen() {
                       </TouchableOpacity>
                     </View>
 
-                    {/* Image */}
-                    {visibleModels.has(result.model) && (
-                      <View className="relative">
-                        <Image
-                          source={{ uri: params.imageUri }}
-                          className="w-full h-40"
-                          resizeMode="contain"
-                        />
+                    {/* Image with Overlay */}
+                    <View className="relative bg-black">
+                      <Image
+                        source={{ uri: params.imageUri }}
+                        className="w-full h-40"
+                        resizeMode="contain"
+                      />
+                      {visibleModels.has(result.model) && (
                         <Image
                           source={{ uri: result.maskUri }}
-                          className="absolute w-full h-full opacity-60"
+                          className="absolute w-full h-full opacity-50"
                           resizeMode="contain"
+                          style={{ tintColor: getModelColor(result.model) }}
                         />
-                      </View>
-                    )}
+                      )}
+                    </View>
 
                     {/* Metrics */}
                     <View className="p-2 gap-1">

@@ -224,6 +224,10 @@
 - [x] Add consensus area calculation
 - [x] Color-code models for easy identification
 - [x] Add compare models button to analysis screen
+- [x] Always show original MRI image with colored overlays
+- [x] Add combined overlay view with all models
+- [x] Add color legend for model identification
+- [x] Use model-specific colors for mask tinting
 - [ ] Display agreement heatmap visualization
 - [ ] Add export comparison report as PDF
 - [ ] Allow zooming and panning synchronized across all views
