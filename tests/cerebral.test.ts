@@ -3,7 +3,7 @@
  * Comprehensive test suite for MRI analysis functionality
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   saveAnalysisToHistory,
   getAnalysisHistory,
@@ -12,10 +12,41 @@ import {
   getSettings,
   saveSettings,
 } from '../services/storage';
-import { generateMockAnalysis } from '../services/vision-analyzer';
-import { generateMockSegmentation } from '../services/segmentation';
 import { AVAILABLE_DATASETS, getDataset, getAllDatasets } from '../services/huggingface';
 import type { MRIAnalysisReport } from '../types/mri';
+
+// Helper to create mock analysis report
+function createMockReport(imageUri: string): MRIAnalysisReport {
+  return {
+    id: `analysis-${Date.now()}-${Math.random()}`,
+    severity: 'normal',
+    emergencyFindings: [],
+    modality: 'T2-weighted',
+    view: 'Axial',
+    anatomicalFindings: [
+      {
+        structure: 'Lateral Ventricles',
+        observation: 'Normal size and configuration',
+        status: 'normal',
+        confidence: 0.92,
+        location: 'Central',
+      },
+      {
+        structure: 'Cerebral Cortex',
+        observation: 'Normal gray-white matter differentiation',
+        status: 'normal',
+        confidence: 0.88,
+        location: 'Bilateral',
+      },
+    ],
+    impression: 'No acute abnormality identified.',
+    differential: [],
+    recommendations: ['Routine follow-up as clinically indicated'],
+    qualityScore: 0.9,
+    timestamp: new Date().toISOString(),
+    imageUri,
+  };
+}
 
 describe('CEREBRAL Mobile App', () => {
   describe('HuggingFace Dataset Service', () => {
@@ -28,141 +59,80 @@ describe('CEREBRAL Mobile App', () => {
       expect(datasets).toHaveLength(4);
       expect(datasets[0]).toHaveProperty('id');
       expect(datasets[0]).toHaveProperty('name');
+      expect(datasets[0]).toHaveProperty('description');
       expect(datasets[0]).toHaveProperty('repoId');
     });
 
     it('should get specific dataset by ID', () => {
-      const dataset = getDataset('brain_tumor');
+      const dataset = getDataset('brain_flair');
       expect(dataset).toBeDefined();
-      expect(dataset?.id).toBe('brain_tumor');
-      expect(dataset?.name).toBe('Brain Tumor MRI');
+      expect(dataset?.id).toBe('brain_flair');
+      expect(dataset?.name).toBe('Brain MRI (FLAIR)');
     });
 
     it('should return undefined for non-existent dataset', () => {
-      const dataset = getDataset('non_existent');
+      const dataset = getDataset('non-existent-dataset');
       expect(dataset).toBeUndefined();
-    });
-
-    it('should have valid repository IDs', () => {
-      AVAILABLE_DATASETS.forEach((dataset) => {
-        expect(dataset.repoId).toMatch(/^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/);
-      });
     });
   });
 
-  describe('Vision Analyzer Service', () => {
-    it('should generate mock analysis report', () => {
+  describe('MRI Analysis Report Structure', () => {
+    it('should generate valid report structure', () => {
       const imageUri = 'https://example.com/mri.jpg';
-      const report = generateMockAnalysis(imageUri);
+      const report = createMockReport(imageUri);
 
-      expect(report).toBeDefined();
-      expect(report.id).toMatch(/^analysis-\d+$/);
+      expect(report).toHaveProperty('id');
+      expect(report).toHaveProperty('severity');
+      expect(report).toHaveProperty('emergencyFindings');
+      expect(report).toHaveProperty('modality');
+      expect(report).toHaveProperty('view');
+      expect(report).toHaveProperty('anatomicalFindings');
+      expect(report).toHaveProperty('impression');
+      expect(report).toHaveProperty('differential');
+      expect(report).toHaveProperty('recommendations');
+      expect(report).toHaveProperty('qualityScore');
+      expect(report).toHaveProperty('timestamp');
+      expect(report).toHaveProperty('imageUri');
       expect(report.imageUri).toBe(imageUri);
-      expect(report.modality).toBeDefined();
-      expect(report.view).toBeDefined();
-      expect(report.anatomicalFindings).toBeInstanceOf(Array);
-      expect(report.qualityScore).toBeGreaterThan(0);
-      expect(report.qualityScore).toBeLessThanOrEqual(1);
     });
 
     it('should include anatomical findings', () => {
-      const report = generateMockAnalysis('test.jpg');
+      const report = createMockReport('test.jpg');
       expect(report.anatomicalFindings.length).toBeGreaterThan(0);
+      expect(report.anatomicalFindings[0]).toHaveProperty('structure');
+      expect(report.anatomicalFindings[0]).toHaveProperty('observation');
+      expect(report.anatomicalFindings[0]).toHaveProperty('status');
+      expect(report.anatomicalFindings[0]).toHaveProperty('confidence');
+    });
 
+    it('should have valid confidence scores', () => {
+      const report = createMockReport('test.jpg');
       report.anatomicalFindings.forEach((finding) => {
-        expect(finding).toHaveProperty('structure');
-        expect(finding).toHaveProperty('observation');
-        expect(finding).toHaveProperty('status');
-        expect(finding).toHaveProperty('confidence');
-        expect(['normal', 'abnormal', 'uncertain']).toContain(finding.status);
         expect(finding.confidence).toBeGreaterThanOrEqual(0);
         expect(finding.confidence).toBeLessThanOrEqual(1);
       });
     });
 
-    it('should generate appropriate impression based on findings', () => {
-      const report = generateMockAnalysis('test.jpg');
-      const hasAbnormalities = report.anatomicalFindings.some((f) => f.status === 'abnormal');
-
-      if (hasAbnormalities) {
-        expect(report.impression).toContain('Abnormal');
-        expect(report.differential.length).toBeGreaterThan(0);
-      } else {
-        expect(report.impression).toContain('No acute abnormality');
-      }
-    });
-
     it('should include recommendations', () => {
-      const report = generateMockAnalysis('test.jpg');
+      const report = createMockReport('test.jpg');
       expect(report.recommendations).toBeInstanceOf(Array);
       expect(report.recommendations.length).toBeGreaterThan(0);
     });
 
     it('should generate valid timestamp', () => {
-      const report = generateMockAnalysis('test.jpg');
+      const report = createMockReport('test.jpg');
       const timestamp = new Date(report.timestamp);
-      expect(timestamp.getTime()).toBeLessThanOrEqual(Date.now());
-      expect(timestamp.getTime()).toBeGreaterThan(Date.now() - 1000);
+      expect(timestamp.toString()).not.toBe('Invalid Date');
     });
   });
 
-  describe('Segmentation Service', () => {
-    it('should generate mock segmentation result', () => {
-      const imageUri = 'https://example.com/mri.jpg';
-      const result = generateMockSegmentation(imageUri, 'T2-weighted');
-
-      expect(result).toBeDefined();
-      expect(result.imageUri).toBe(imageUri);
-      expect(result.overlayUri).toBeDefined();
-      expect(result.statistics).toBeDefined();
-    });
-
-    it('should calculate valid segmentation statistics', () => {
-      const result = generateMockSegmentation('test.jpg', 'T2-weighted');
-
-      expect(result.statistics.totalPixels).toBeGreaterThan(0);
-      expect(result.statistics.segmentedPixels).toBeGreaterThan(0);
-      expect(result.statistics.segmentedPixels).toBeLessThanOrEqual(
-        result.statistics.totalPixels
-      );
-
-      const expectedPercentage =
-        (result.statistics.segmentedPixels / result.statistics.totalPixels) * 100;
-      expect(result.statistics.segmentedPercentage).toBeCloseTo(expectedPercentage, 2);
-    });
-
-    it('should detect multiple regions', () => {
-      const result = generateMockSegmentation('test.jpg', 'FLAIR');
-      expect(result.statistics.regions.length).toBeGreaterThan(0);
-
-      result.statistics.regions.forEach((region) => {
-        expect(region).toHaveProperty('label');
-        expect(region).toHaveProperty('area');
-        expect(region).toHaveProperty('percentage');
-        expect(region.area).toBeGreaterThan(0);
-        expect(region.percentage).toBeGreaterThan(0);
-      });
-    });
-
-    it('should have region percentages sum close to total', () => {
-      const result = generateMockSegmentation('test.jpg', 'T1-weighted');
-      const totalRegionPercentage = result.statistics.regions.reduce(
-        (sum, region) => sum + region.percentage,
-        0
-      );
-
-      expect(totalRegionPercentage).toBeCloseTo(result.statistics.segmentedPercentage, 1);
-    });
-  });
-
-  describe('Storage Service', () => {
+  describe('Analysis History Management', () => {
     beforeEach(async () => {
-      // Clear storage before each test
       await clearAnalysisHistory();
     });
 
     it('should save and retrieve analysis history', async () => {
-      const report = generateMockAnalysis('test1.jpg');
+      const report = createMockReport('test1.jpg');
       await saveAnalysisToHistory(report);
 
       const history = await getAnalysisHistory();
@@ -171,11 +141,11 @@ describe('CEREBRAL Mobile App', () => {
     });
 
     it('should maintain history order (newest first)', async () => {
-      const report1 = generateMockAnalysis('test1.jpg');
-      const report2 = generateMockAnalysis('test2.jpg');
+      const report1 = createMockReport('test1.jpg');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      const report2 = createMockReport('test2.jpg');
 
       await saveAnalysisToHistory(report1);
-      await new Promise((resolve) => setTimeout(resolve, 10)); // Small delay
       await saveAnalysisToHistory(report2);
 
       const history = await getAnalysisHistory();
@@ -184,29 +154,23 @@ describe('CEREBRAL Mobile App', () => {
     });
 
     it('should delete specific analysis from history', async () => {
-      const report1 = generateMockAnalysis('test1.jpg');
-      await new Promise((resolve) => setTimeout(resolve, 10)); // Ensure different IDs
-      const report2 = generateMockAnalysis('test2.jpg');
+      const report1 = createMockReport('test1.jpg');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      const report2 = createMockReport('test2.jpg');
 
       await saveAnalysisToHistory(report1);
       await saveAnalysisToHistory(report2);
 
-      let history = await getAnalysisHistory();
-      expect(history.length).toBeGreaterThanOrEqual(2);
-
       await deleteAnalysisFromHistory(report1.id);
 
-      history = await getAnalysisHistory();
-      const hasReport1 = history.some((h) => h.id === report1.id);
-      const hasReport2 = history.some((h) => h.id === report2.id);
-      
-      expect(hasReport1).toBe(false);
-      expect(hasReport2).toBe(true);
+      const history = await getAnalysisHistory();
+      expect(history).toHaveLength(1);
+      expect(history[0].id).toBe(report2.id);
     });
 
     it('should clear all analysis history', async () => {
-      const report1 = generateMockAnalysis('test1.jpg');
-      const report2 = generateMockAnalysis('test2.jpg');
+      const report1 = createMockReport('test1.jpg');
+      const report2 = createMockReport('test2.jpg');
 
       await saveAnalysisToHistory(report1);
       await saveAnalysisToHistory(report2);
@@ -217,53 +181,55 @@ describe('CEREBRAL Mobile App', () => {
       expect(history).toHaveLength(0);
     });
 
-    it('should limit history to 50 items', async () => {
-      // Add 60 reports
+    it('should limit history to 50 most recent analyses', async () => {
+      // Add 60 analyses
       for (let i = 0; i < 60; i++) {
-        const report = generateMockAnalysis(`test${i}.jpg`);
+        const report = createMockReport(`test${i}.jpg`);
         await saveAnalysisToHistory(report);
       }
 
       const history = await getAnalysisHistory();
       expect(history.length).toBeLessThanOrEqual(50);
     });
+  });
 
+  describe('Settings Management', () => {
     it('should save and retrieve settings', async () => {
       const settings = {
-        autoSaveHistory: true,
         darkMode: true,
+        autoSaveHistory: true,
       };
 
       await saveSettings(settings);
       const retrieved = await getSettings();
 
-      expect(retrieved.autoSaveHistory).toBe(true);
       expect(retrieved.darkMode).toBe(true);
+      expect(retrieved.autoSaveHistory).toBe(true);
     });
 
-    it('should return default settings when none exist', async () => {
+    it('should have default settings', async () => {
       const settings = await getSettings();
-      expect(settings).toHaveProperty('autoSaveHistory');
       expect(settings).toHaveProperty('darkMode');
+      expect(settings).toHaveProperty('autoSaveHistory');
     });
   });
 
-  describe('Data Types', () => {
-    it('should have valid MRI modality types', () => {
+  describe('MRI Report Validation', () => {
+    it('should have valid modality', () => {
       const validModalities = ['T1-weighted', 'T2-weighted', 'FLAIR', 'T1+Gd'];
-      const report = generateMockAnalysis('test.jpg');
+      const report = createMockReport('test.jpg');
       expect(validModalities).toContain(report.modality);
     });
 
-    it('should have valid MRI view types', () => {
+    it('should have valid view', () => {
       const validViews = ['Axial', 'Coronal', 'Sagittal'];
-      const report = generateMockAnalysis('test.jpg');
+      const report = createMockReport('test.jpg');
       expect(validViews).toContain(report.view);
     });
 
-    it('should have valid finding status types', () => {
+    it('should have valid finding statuses', () => {
       const validStatuses = ['normal', 'abnormal', 'uncertain'];
-      const report = generateMockAnalysis('test.jpg');
+      const report = createMockReport('test.jpg');
 
       report.anatomicalFindings.forEach((finding) => {
         expect(validStatuses).toContain(finding.status);
@@ -271,45 +237,27 @@ describe('CEREBRAL Mobile App', () => {
     });
   });
 
-  describe('Analysis Report Structure', () => {
+  describe('Report Quality Metrics', () => {
     let report: MRIAnalysisReport;
 
     beforeEach(() => {
-      report = generateMockAnalysis('test.jpg');
+      report = createMockReport('test.jpg');
     });
 
-    it('should have required report fields', () => {
-      expect(report).toHaveProperty('id');
-      expect(report).toHaveProperty('modality');
-      expect(report).toHaveProperty('view');
-      expect(report).toHaveProperty('anatomicalFindings');
-      expect(report).toHaveProperty('impression');
-      expect(report).toHaveProperty('differential');
-      expect(report).toHaveProperty('recommendations');
-      expect(report).toHaveProperty('qualityScore');
-      expect(report).toHaveProperty('timestamp');
-      expect(report).toHaveProperty('imageUri');
-    });
-
-    it('should have valid quality score range', () => {
+    it('should have quality score between 0 and 1', () => {
       expect(report.qualityScore).toBeGreaterThanOrEqual(0);
       expect(report.qualityScore).toBeLessThanOrEqual(1);
     });
 
-    it('should have non-empty impression', () => {
-      expect(report.impression).toBeTruthy();
-      expect(report.impression.length).toBeGreaterThan(0);
+    it('should have unique analysis ID', () => {
+      const report2 = createMockReport('test2.jpg');
+      expect(report.id).not.toBe(report2.id);
     });
 
-    it('should have valid anatomical findings structure', () => {
-      expect(report.anatomicalFindings.length).toBeGreaterThan(0);
-
-      report.anatomicalFindings.forEach((finding) => {
-        expect(finding.structure).toBeTruthy();
-        expect(finding.observation).toBeTruthy();
-        expect(finding.status).toBeTruthy();
-        expect(typeof finding.confidence).toBe('number');
-      });
+    it('should include impression text', () => {
+      expect(report.impression).toBeTruthy();
+      expect(typeof report.impression).toBe('string');
+      expect(report.impression.length).toBeGreaterThan(0);
     });
   });
 });

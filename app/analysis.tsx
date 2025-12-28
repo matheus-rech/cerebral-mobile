@@ -9,7 +9,7 @@ import { MRIImageViewer } from "@/components/mri-image-viewer";
 import { AnalysisReportCard } from "@/components/analysis-report-card";
 import { EmergencyAlert } from "@/components/emergency-alert";
 import { useColors } from "@/hooks/use-colors";
-import { analyzeMRIImage, generateMockAnalysis } from "@/services/vision-analyzer";
+import { analyzeMRIImage } from "@/services/vision-analyzer";
 import { saveAnalysisToHistory } from "@/services/storage";
 import type { MRIAnalysisReport } from "@/types/mri";
 
@@ -30,16 +30,8 @@ export default function AnalysisScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setAnalyzing(true);
 
-      // Try to use real API, fall back to mock if unavailable
-      let analysisReport;
-      try {
-        analysisReport = await analyzeMRIImage(params.imageUri);
-      } catch (apiError) {
-        console.warn('API unavailable, using mock analysis:', apiError);
-        // Simulate analysis delay
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        analysisReport = generateMockAnalysis(params.imageUri);
-      }
+      // Analyze MRI image using Claude Vision API
+      const analysisReport = await analyzeMRIImage(params.imageUri);
       setReport(analysisReport);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

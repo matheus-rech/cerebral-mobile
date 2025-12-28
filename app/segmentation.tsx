@@ -15,7 +15,7 @@ import * as Haptics from "expo-haptics";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { generateMockSegmentation } from "@/services/segmentation";
+import { segmentMRIImage } from "@/services/segmentation";
 import type { SegmentationResult, MRIModality } from "@/types/mri";
 
 export default function SegmentationScreen() {
@@ -34,11 +34,8 @@ export default function SegmentationScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setSegmenting(true);
 
-      // Simulate segmentation delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Generate mock segmentation (in production, this would call the backend API)
-      const segmentationResult = generateMockSegmentation(
+      // Call real segmentation API
+      const segmentationResult = await segmentMRIImage(
         params.imageUri,
         params.modality || "T2-weighted"
       );
