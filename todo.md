@@ -356,3 +356,37 @@
 - [x] Validate overlay visualization for each model (UNet, MedSAM2, SAM3 working)
 - [ ] Test model configuration parameters affect results (UI ready, pending validation)
 - [x] Create integration test report for all services (ML_SERVICE_INTEGRATION_REPORT.md)
+
+## UI Improvements and Interactive Features (v1.9)
+- [x] Created enhanced MRI viewer component (mri-viewer-enhanced.tsx)
+- [x] Add interactive slider/scrubber for multi-slice MRI viewing
+- [x] Implement pinch-to-zoom for image viewing (already existed)
+- [x] Add brightness/contrast adjustment controls
+- [x] Create windowing controls for DICOM images
+- [x] Implement overlay opacity slider
+- [x] Add tap-to-toggle controls visibility
+- [x] Add double-tap to zoom/reset
+- [x] Add reset view button
+- [x] Fix TypeScript errors in viewer component
+- [ ] Integrate enhanced viewer into analysis screen
+- [ ] Test interactive features on iOS and Android
+- [ ] Add side-by-side comparison view for before/after
+
+## Async Processing and Progress Indicators (v1.9)
+- [x] Implement async job queue service (async-processing.ts)
+- [x] Add progress tracking for all ML models
+- [x] Create progress indicator UI component (async-job-progress.tsx)
+- [x] Add estimated time remaining display
+- [x] Implement job cancellation
+- [x] Store job status in AsyncStorage
+- [x] Add error handling and retry logic
+- [x] Support for all 5 model types (SynthSeg, UNet, MedSAM2, SAM3, 3D Tracker)
+- [x] Fix TypeScript errors in progress component
+- [x] Create async processing demo screen (async-demo.tsx)
+- [x] Add navigation to demo from settings
+- [x] Write comprehensive unit tests (26 tests, all passing)
+- [x] Create feature documentation (FEATURES_V1.9.md)
+- [ ] Integrate async processing into segmentation workflow
+- [ ] Add background processing notifications
+- [ ] Test async processing with multiple concurrent requests
+- [ ] Create async jobs management screen

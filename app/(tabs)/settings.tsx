@@ -124,6 +124,31 @@ export default function SettingsScreen() {
             </View>
           </View>
 
+          {/* Advanced Features */}
+          <View className="gap-4">
+            <Text className="text-lg font-bold text-foreground">Advanced</Text>
+
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/async-demo');
+              }}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            >
+              <View className="bg-surface rounded-2xl p-4 border border-border flex-row items-center justify-between">
+                <View className="flex-1">
+                  <Text className="text-base font-semibold text-foreground mb-1">
+                    🚀 Async Processing Demo
+                  </Text>
+                  <Text className="text-sm text-muted">
+                    Test background ML processing with progress tracking
+                  </Text>
+                </View>
+                <Text className="text-primary font-semibold">→</Text>
+              </View>
+            </Pressable>
+          </View>
+
           {/* Appearance Settings */}
           <View className="gap-4">
             <Text className="text-lg font-bold text-foreground">Appearance</Text>
