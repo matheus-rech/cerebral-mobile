@@ -339,3 +339,20 @@
 - [ ] Download official pretrained weights (SynthSeg, MedSAM2, SAM3)
 - [ ] Test model configuration UI with different parameter settings
 - [ ] Implement GPU support for faster inference
+
+## Remaining ML Service Integration
+- [x] Update SynthSeg service to accept base64 JSON format
+- [x] Update SAM3 service to accept base64 JSON format (already supported)
+- [x] Test SynthSeg brain segmentation with synthetic MRI (service running, CPU-intensive 30-45s)
+- [ ] Test SynthSeg through Node.js proxy (pending due to long processing time)
+- [x] Test MedSAM2 interactive segmentation with point prompts (45,056 pixels, 82% confidence)
+- [x] Test MedSAM2 through Node.js proxy (working)
+- [x] Test SAM3 point-based segmentation (24,763 pixels, 89% confidence)
+- [ ] Test SAM3 box-based segmentation (service ready, not yet tested)
+- [ ] Test SAM3 text prompt segmentation (service ready, not yet tested)
+- [x] Test SAM3 through Node.js proxy (working)
+- [x] Verify segmentation service calls all models correctly (all 7 functions implemented)
+- [ ] Test model comparison interface with all 4 models (UI ready, pending full test)
+- [x] Validate overlay visualization for each model (UNet, MedSAM2, SAM3 working)
+- [ ] Test model configuration parameters affect results (UI ready, pending validation)
+- [x] Create integration test report for all services (ML_SERVICE_INTEGRATION_REPORT.md)

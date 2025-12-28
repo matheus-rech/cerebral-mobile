@@ -145,20 +145,50 @@ def health_check():
 def segment_brain():
     """
     Segment brain MRI using SynthSeg-style model
+    Accepts either multipart file upload or JSON with base64 image
     """
     try:
         initialize_model()
         
-        # Get image data
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
+        # Check if JSON request with base64 image
+        if request.is_json:
+            data = request.get_json()
+            if 'image' not in data:
+                return jsonify({'error': 'No image data provided'}), 400
+            
+            # Decode base64 image and create temporary file
+            try:
+                image_bytes = base64.b64decode(data['image'])
+                image = Image.open(io.BytesIO(image_bytes))
+                
+                # Convert to grayscale if needed
+                if image.mode != 'L':
+                    image = image.convert('L')
+                
+                # For 2D images, create a simple 3D volume (single slice)
+                image_array = np.array(image).astype(np.float32)
+                # Stack to create minimal 3D volume for SynthSeg
+                image_3d = np.stack([image_array] * 3, axis=-1)
+                
+                # Save as temporary NIfTI file
+                nii = nib.Nifti1Image(image_3d, affine=np.eye(4))
+                tmp_path = tempfile.mktemp(suffix='.nii.gz')
+                nib.save(nii, tmp_path)
+                
+            except Exception as e:
+                return jsonify({'error': f'Failed to decode image: {str(e)}'}), 400
         
-        file = request.files['file']
+        # Otherwise, expect multipart file upload
+        elif 'file' in request.files:
+            file = request.files['file']
+            
+            # Save to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.nii.gz') as tmp:
+                file.save(tmp.name)
+                tmp_path = tmp.name
         
-        # Save to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.nii.gz') as tmp:
-            file.save(tmp.name)
-            tmp_path = tmp.name
+        else:
+            return jsonify({'error': 'No file or image data provided'}), 400
         
         try:
             # Apply SynthSeg preprocessing
@@ -252,7 +282,7 @@ def segment_brain():
         
         finally:
             # Clean up temp file
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
     
     except Exception as e:
