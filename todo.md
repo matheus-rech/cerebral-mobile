@@ -228,6 +228,18 @@
 - [x] Add combined overlay view with all models
 - [x] Add color legend for model identification
 - [x] Use model-specific colors for mask tinting
-- [ ] Display agreement heatmap visualization
+- [x] Generate pixel-by-pixel agreement heatmap
+- [x] Color-code agreement (green=high, yellow/orange=medium, red=low, dark=none)
+- [x] Display heatmap as toggleable view
+- [x] Calculate per-pixel model consensus
+- [x] Show agreement statistics with percentages
+- [x] Display color legend for agreement levels
+- [x] Create ZoomableImage component with gesture support
+- [x] Implement pinch-to-zoom gesture
+- [x] Implement pan gesture with drag
+- [x] Synchronize zoom level across all viewports using SharedValue
+- [x] Synchronize pan position across all viewports
+- [x] Add reset zoom/pan button
+- [x] Show current zoom level indicator
+- [ ] Apply synchronized zoom to individual model views
 - [ ] Add export comparison report as PDF
-- [ ] Allow zooming and panning synchronized across all views

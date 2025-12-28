@@ -10,7 +10,10 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { ScreenContainer } from '@/components/screen-container';
+import { ZoomableImage, resetZoomPan } from '@/components/zoomable-image';
+import { generateAgreementHeatmap, getAgreementColor, type HeatmapResult } from '@/services/agreement-heatmap';
 import * as Haptics from 'expo-haptics';
+import { useSharedValue } from 'react-native-reanimated';
 
 type ModelResult = {
   model: string;
@@ -32,6 +35,14 @@ export default function ModelComparisonScreen() {
   const [results, setResults] = useState<ModelResult[]>([]);
   const [metrics, setMetrics] = useState<ComparisonMetrics | null>(null);
   const [visibleModels, setVisibleModels] = useState<Set<string>>(new Set());
+  const [heatmap, setHeatmap] = useState<HeatmapResult | null>(null);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+
+  // Shared values for synchronized zoom/pan
+  const sharedScale = useSharedValue(1);
+  const sharedTranslateX = useSharedValue(0);
+  const sharedTranslateY = useSharedValue(0);
 
   const models = [
     { name: 'UNet', port: 5003, color: '#EF4444' },
@@ -109,6 +120,12 @@ export default function ModelComparisonScreen() {
       if (validResults.length >= 2) {
         const metrics = calculateMetrics(validResults);
         setMetrics(metrics);
+
+        // Generate agreement heatmap
+        const heatmapData = await generateAgreementHeatmap(
+          validResults.map((r) => ({ model: r.model, maskUri: r.maskUri }))
+        );
+        setHeatmap(heatmapData);
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -172,6 +189,16 @@ export default function ModelComparisonScreen() {
     return models.find((m) => m.name === modelName)?.color || '#6B7280';
   };
 
+  const handleResetZoom = () => {
+    resetZoomPan(sharedScale, sharedTranslateX, sharedTranslateY);
+    setZoomLevel(1);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleTransformChange = (scale: number, translateX: number, translateY: number) => {
+    setZoomLevel(scale);
+  };
+
   return (
     <ScreenContainer>
       <ScrollView className="flex-1 p-4">
@@ -219,6 +246,119 @@ export default function ModelComparisonScreen() {
             resizeMode="contain"
           />
         </View>
+
+        {/* Zoom Controls */}
+        {results.length > 0 && (
+          <View className="mb-4 flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-sm text-muted">Zoom:</Text>
+              <Text className="text-sm font-semibold text-foreground">
+                {zoomLevel.toFixed(1)}x
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleResetZoom}
+              className="bg-surface px-4 py-2 rounded-lg border border-border"
+            >
+              <Text className="text-foreground font-semibold">Reset View</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Agreement Heatmap */}
+        {heatmap && (
+          <View className="mb-4">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-lg font-semibold text-foreground">
+                Agreement Heatmap
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowHeatmap(!showHeatmap);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <Text className="text-primary font-semibold">
+                  {showHeatmap ? 'Hide' : 'Show'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {showHeatmap && (
+              <>
+                <View className="relative bg-black rounded-lg overflow-hidden mb-3">
+                  <Image
+                    source={{ uri: params.imageUri }}
+                    className="w-full h-64"
+                    resizeMode="contain"
+                  />
+                  <Image
+                    source={{ uri: heatmap.heatmapUri }}
+                    className="absolute w-full h-full opacity-70"
+                    resizeMode="contain"
+                  />
+                </View>
+
+                {/* Heatmap Statistics */}
+                <View className="bg-surface p-3 rounded-lg">
+                  <Text className="text-sm font-semibold text-foreground mb-2">
+                    Agreement Statistics:
+                  </Text>
+                  <View className="gap-2">
+                    <View className="flex-row items-center gap-2">
+                      <View
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: getAgreementColor('high') }}
+                      />
+                      <Text className="text-xs text-muted flex-1">High Agreement (&gt;75%):</Text>
+                      <Text className="text-xs font-semibold text-foreground">
+                        {heatmap.statistics.highAgreement.toFixed(1)}%
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                      <View
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: getAgreementColor('medium') }}
+                      />
+                      <Text className="text-xs text-muted flex-1">Medium Agreement (50-75%):</Text>
+                      <Text className="text-xs font-semibold text-foreground">
+                        {heatmap.statistics.mediumAgreement.toFixed(1)}%
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                      <View
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: getAgreementColor('low') }}
+                      />
+                      <Text className="text-xs text-muted flex-1">Low Agreement (25-50%):</Text>
+                      <Text className="text-xs font-semibold text-foreground">
+                        {heatmap.statistics.lowAgreement.toFixed(1)}%
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                      <View
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: getAgreementColor('none') }}
+                      />
+                      <Text className="text-xs text-muted flex-1">No Agreement (&lt;25%):</Text>
+                      <Text className="text-xs font-semibold text-foreground">
+                        {heatmap.statistics.noAgreement.toFixed(1)}%
+                      </Text>
+                    </View>
+                    <View className="border-t border-border pt-2 mt-1">
+                      <View className="flex-row justify-between">
+                        <Text className="text-xs text-muted">Average Agreement:</Text>
+                        <Text className="text-xs font-semibold text-foreground">
+                          {(heatmap.statistics.averageAgreement * 100).toFixed(1)}%
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </>
+            )}
+          </View>
+        )}
 
         {/* Combined Overlay View */}
         {results.length > 0 && (
