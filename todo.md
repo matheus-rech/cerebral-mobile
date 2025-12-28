@@ -122,3 +122,18 @@
 - [ ] Download pretrained SynthSeg weights (optional)
 - [ ] Connect to mobile app frontend
 - [ ] Test end-to-end with real MRI scans
+
+## UNet Lesion Detector Integration
+- [x] Install pretrained UNet model from mateuszbuda/brain-segmentation-pytorch
+- [x] Download pretrained weights from torch.hub
+- [x] Create lesion detection service (port 5003)
+- [x] Implement preprocessing for UNet input (256x256 RGB)
+- [x] Add lesion segmentation inference
+- [x] Calculate lesion statistics (count, size, location)
+- [x] Generate lesion overlay visualization
+- [x] Create API endpoints (/detect, /health, /info)
+- [x] Add lesion severity classification (small/medium/large, mild/moderate/severe)
+- [x] Generate clinical impressions for detected lesions
+- [x] Test service initialization and health checks
+- [ ] Test with real MRI scans containing lesions
+- [ ] Integrate with mobile app frontend

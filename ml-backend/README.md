@@ -4,10 +4,11 @@ Production-ready deep learning backend for brain MRI analysis using MONAI and Sy
 
 ## Overview
 
-The CEREBRAL ML Backend provides two powerful segmentation services:
+The CEREBRAL ML Backend provides three powerful deep learning services:
 
 1. **MONAI Segmentation**: Basic brain tissue segmentation (gray/white matter)
 2. **SynthSeg**: Advanced 32-structure brain segmentation with FreeSurfer labels
+3. **UNet Lesion Detector**: Automatic hyperintense lesion detection (MS plaques, tumors)
 
 ## Features
 
@@ -25,6 +26,16 @@ The CEREBRAL ML Backend provides two powerful segmentation services:
 - Resolution-agnostic processing
 - Volumetric analysis (mm³ and ml)
 - SegResNet architecture (18M parameters)
+- **Status**: Fully implemented and tested
+
+### UNet Lesion Detector ✅
+- Pretrained model from mateuszbuda/brain-segmentation-pytorch
+- Automatic hyperintense lesion detection
+- Lesion size and location analysis
+- Severity classification (small/medium/large, mild/moderate/severe)
+- Clinical impression generation
+- Red overlay visualization
+- UNet architecture (7.7M parameters)
 - **Status**: Fully implemented and tested
 
 ## Installation
@@ -118,7 +129,72 @@ python3 synthseg_service.py
 - **Device**: CPU (GPU if available)
 - **Output**: 32 brain structures with FreeSurfer labels
 
+### 3. UNet Lesion Detection Service
+
+Automatic hyperintense lesion detection.
+
+```bash
+python3 unet_lesion_detector.py
+```
+
+- **Port**: 5003
+- **Device**: CPU (GPU if available)
+- **Output**: Lesion segmentation with severity classification
+
 ## API Documentation
+
+### UNet Lesion Detector Endpoints
+
+#### Health Check
+```bash
+curl http://localhost:5003/health
+```
+
+Response:
+```json
+{
+  "status": "healthy",
+  "service": "UNet Lesion Detector",
+  "device": "cpu",
+  "model_loaded": true,
+  "pretrained": true
+}
+```
+
+#### Detect Lesions
+```bash
+curl -X POST \
+  -F "file=@brain_scan.nii.gz" \
+  http://localhost:5003/detect
+```
+
+Response:
+```json
+{
+  "success": true,
+  "num_lesions": 5,
+  "total_lesion_volume_mm2": 123.45,
+  "lesions": [
+    {
+      "id": 1,
+      "size_pixels": 150,
+      "size_mm2": 37.5,
+      "centroid": {"x": 128.5, "y": 100.2},
+      "intensity": 0.85,
+      "severity": "medium_severe"
+    }
+  ],
+  "impression": "Detected 5 hyperintense lesion(s)...",
+  "lesion_overlay": "data:image/png;base64,...",
+  "model": "UNet (mateuszbuda/brain-segmentation-pytorch)",
+  "pretrained": true
+}
+```
+
+#### Service Info
+```bash
+curl http://localhost:5003/info
+```
 
 ### SynthSeg Endpoints
 
