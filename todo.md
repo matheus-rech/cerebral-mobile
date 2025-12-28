@@ -241,5 +241,8 @@
 - [x] Synchronize pan position across all viewports
 - [x] Add reset zoom/pan button
 - [x] Show current zoom level indicator
-- [ ] Apply synchronized zoom to individual model views
+- [x] Replace static Image components with ZoomableImage in 2×2 grid
+- [x] Connect all 4 model viewports to shared zoom/pan values
+- [x] Synchronize mask overlays with base image transforms
+- [x] Test synchronized gestures across all viewports
 - [ ] Add export comparison report as PDF

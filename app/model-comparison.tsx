@@ -438,20 +438,33 @@ export default function ModelComparisonScreen() {
                       </TouchableOpacity>
                     </View>
 
-                    {/* Image with Overlay */}
-                    <View className="relative bg-black">
-                      <Image
+                    {/* Image with Overlay - Synchronized Zoom/Pan */}
+                    <View className="relative bg-black h-40">
+                      <ZoomableImage
                         source={{ uri: params.imageUri }}
                         className="w-full h-40"
                         resizeMode="contain"
+                        sharedScale={sharedScale}
+                        sharedTranslateX={sharedTranslateX}
+                        sharedTranslateY={sharedTranslateY}
+                        onTransformChange={handleTransformChange}
                       />
                       {visibleModels.has(result.model) && (
-                        <Image
-                          source={{ uri: result.maskUri }}
-                          className="absolute w-full h-full opacity-50"
-                          resizeMode="contain"
-                          style={{ tintColor: getModelColor(result.model) }}
-                        />
+                        <View className="absolute w-full h-full" style={{ pointerEvents: 'none' }}>
+                          <Image
+                            source={{ uri: result.maskUri }}
+                            className="w-full h-full opacity-50"
+                            resizeMode="contain"
+                            style={{
+                              tintColor: getModelColor(result.model),
+                              transform: [
+                                { translateX: sharedTranslateX.value },
+                                { translateY: sharedTranslateY.value },
+                                { scale: sharedScale.value },
+                              ],
+                            }}
+                          />
+                        </View>
                       )}
                     </View>
 
