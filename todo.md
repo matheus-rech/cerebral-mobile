@@ -211,3 +211,19 @@
 - [ ] Display confidence heatmaps
 - [ ] Allow user to select preferred model
 - [ ] Generate ensemble reports
+
+## Model Comparison Interface
+- [x] Create side-by-side comparison screen
+- [x] Run all models on same image simultaneously (parallel execution)
+- [x] Display results in 2x2 grid layout
+- [x] Show model names and confidence scores
+- [x] Add toggle to show/hide individual masks
+- [x] Calculate Dice coefficient between all model pairs
+- [x] Display overall agreement percentage
+- [x] Show performance metrics (inference time per model)
+- [x] Add consensus area calculation
+- [x] Color-code models for easy identification
+- [x] Add compare models button to analysis screen
+- [ ] Display agreement heatmap visualization
+- [ ] Add export comparison report as PDF
+- [ ] Allow zooming and panning synchronized across all views

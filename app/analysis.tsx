@@ -272,6 +272,28 @@ export default function AnalysisScreen() {
                   </Text>
                 </View>
               </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: '/model-comparison',
+                    params: {
+                      imageUri: params.imageUri,
+                    },
+                  });
+                }}
+                style={({ pressed }) => ({
+                  opacity: pressed ? 0.7 : 1,
+                  transform: [{ scale: pressed ? 0.97 : 1 }],
+                })}
+              >
+                <View className="bg-surface rounded-2xl p-4 items-center border border-border">
+                  <Text className="text-lg font-bold text-foreground">
+                    🔬 Compare Models
+                  </Text>
+                </View>
+              </Pressable>
             </View>
           </View>
         )}
