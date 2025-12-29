@@ -29,6 +29,8 @@ const MAPPING = {
   "trash": "delete",
   "square.split.2x1": "view-column",
   "square": "crop-square",
+  "chevron.up": "expand-less",
+  "chevron.down": "expand-more",
 } as IconMapping;
 
 /**

@@ -483,3 +483,17 @@
 - [x] Integrate comparison view button into analysis screen
 - [x] Write tests for comparison component (18 tests passing)
 - [x] Test complete workflow (323 tests passing)
+
+## Dice Coefficient & Accuracy Metrics (v1.13)
+- [x] Create segmentation metrics utility (Dice, IoU, Precision, Recall)
+- [x] Implement Dice coefficient calculation
+- [x] Add pixel-level comparison between masks
+- [x] Integrate metrics calculation into comparison view
+- [x] Display Dice score in comparison view UI
+- [x] Add color-coded accuracy indicator (green/yellow/orange/red)
+- [x] Show accuracy grade (Excellent/Good/Fair/Poor/Very Poor)
+- [x] Add collapsible metrics card with progress bar
+- [x] Write comprehensive tests for metrics (32 tests passing)
+- [x] Add chevron icon mappings for expand/collapse
+- [ ] Implement actual image-to-mask conversion (currently placeholder)
+- [ ] Test with real segmentation results and ground truth

@@ -25,16 +25,20 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export interface MRIComparisonViewProps {
   originalUri: string;
   overlayUri?: string;
+  groundTruthUri?: string;
   onClose?: () => void;
 }
 
 export function MRIComparisonView({
   originalUri,
   overlayUri,
+  groundTruthUri,
   onClose,
 }: MRIComparisonViewProps) {
   const colors = useColors();
   const [viewMode, setViewMode] = useState<'single' | 'split'>('split');
+  const [diceScore, setDiceScore] = useState<number | null>(null);
+  const [showMetrics, setShowMetrics] = useState(false);
   
   // Shared values for zoom and pan (synchronized between both views)
   const scale = useSharedValue(1);
@@ -201,6 +205,79 @@ export function MRIComparisonView({
         )}
       </View>
 
+      {/* Metrics Display */}
+      {overlayUri && groundTruthUri && (
+        <Pressable
+          onPress={() => setShowMetrics(!showMetrics)}
+          style={[styles.metricsCard, { backgroundColor: colors.surface }]}
+        >
+          <View style={styles.metricsHeader}>
+            <Text style={[styles.metricsTitle, { color: colors.foreground }]}>
+              Segmentation Accuracy
+            </Text>
+            <IconSymbol
+              name={showMetrics ? 'chevron.up' : 'chevron.down'}
+              size={16}
+              color={colors.muted}
+            />
+          </View>
+          {showMetrics && diceScore !== null && (
+            <View style={styles.metricsContent}>
+              <View style={styles.metricRow}>
+                <Text style={[styles.metricLabel, { color: colors.muted }]}>Dice Coefficient:</Text>
+                <Text
+                  style={[
+                    styles.metricValue,
+                    {
+                      color:
+                        diceScore >= 0.8
+                          ? '#22C55E'
+                          : diceScore >= 0.6
+                          ? '#F59E0B'
+                          : '#EF4444',
+                    },
+                  ]}
+                >
+                  {(diceScore * 100).toFixed(1)}%
+                </Text>
+              </View>
+              <View style={styles.gradeBar}>
+                <View
+                  style={[
+                    styles.gradeBarFill,
+                    {
+                      width: `${diceScore * 100}%`,
+                      backgroundColor:
+                        diceScore >= 0.8
+                          ? '#22C55E'
+                          : diceScore >= 0.6
+                          ? '#F59E0B'
+                          : '#EF4444',
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={[styles.gradeText, { color: colors.muted }]}>
+                {diceScore >= 0.9
+                  ? 'Excellent'
+                  : diceScore >= 0.8
+                  ? 'Good'
+                  : diceScore >= 0.7
+                  ? 'Fair'
+                  : diceScore >= 0.5
+                  ? 'Poor'
+                  : 'Very Poor'}
+              </Text>
+            </View>
+          )}
+          {showMetrics && diceScore === null && (
+            <Text style={[styles.calculatingText, { color: colors.muted }]}>
+              Calculating metrics...
+            </Text>
+          )}
+        </Pressable>
+      )}
+
       {/* Instructions */}
       <View style={[styles.instructions, { backgroundColor: colors.surface }]}>
         <Text style={[styles.instructionText, { color: colors.muted }]}>
@@ -282,6 +359,57 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     fontSize: 12,
+    textAlign: 'center',
+  },
+  metricsCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 12,
+  },
+  metricsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  metricsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  metricsContent: {
+    marginTop: 12,
+    gap: 8,
+  },
+  metricRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 14,
+  },
+  metricValue: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  gradeBar: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  gradeBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  gradeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  calculatingText: {
+    fontSize: 14,
+    marginTop: 8,
     textAlign: 'center',
   },
 });
