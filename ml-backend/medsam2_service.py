@@ -22,22 +22,29 @@ model = None
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def initialize_model():
-    """Initialize MedSAM2 model"""
+    """Initialize MedSAM2 model with pretrained weights"""
     global model
     if model is None:
         print("Initializing MedSAM2...")
         try:
-            # Try to load from HuggingFace or local
-            # For now, we'll use a placeholder architecture
-            # In production, use: from medsam import MedSAM2
-            model = create_medsam2_model()
+            # Try to load pretrained SAM model
+            from sam_model import load_medical_sam
+            model = load_medical_sam()
             model.eval()
             model.to(device)
-            print(f"MedSAM2 loaded on {device}")
+            print(f"MedSAM2 loaded with pretrained weights on {device}")
         except Exception as e:
-            print(f"Error loading MedSAM2: {e}")
-            print("Using mock implementation")
-            model = MockMedSAM2()
+            print(f"Error loading pretrained model: {e}")
+            print("Falling back to custom architecture")
+            try:
+                model = create_medsam2_model()
+                model.eval()
+                model.to(device)
+                print(f"MedSAM2 (custom) loaded on {device}")
+            except Exception as e2:
+                print(f"Error loading custom model: {e2}")
+                print("Using mock implementation")
+                model = MockMedSAM2()
 
 def create_medsam2_model():
     """
@@ -254,24 +261,46 @@ def segment_with_prompts():
         if not prompt_data:
             return jsonify({'error': 'No prompts provided'}), 400
         
-        # Preprocess
-        image_tensor = preprocess_image(image_data).to(device)
-        prompts_tensor = parse_prompts(prompt_data).to(device)
-        
-        print(f"Image shape: {image_tensor.shape}")
-        print(f"Prompts: {prompts_tensor.shape}")
-        
-        # Segment
-        with torch.no_grad():
-            mask = model(image_tensor, prompts_tensor)
-        
-        # Post-process mask
-        mask_np = mask.cpu().numpy()[0, 0]
+        # Check if using MedicalSAM model
+        from sam_model import MedicalSAM
+        if isinstance(model, MedicalSAM):
+            # Use MedicalSAM's segment method
+            point = None
+            box = None
+            
+            if 'points' in prompt_data and prompt_data['points']:
+                p = prompt_data['points'][0]
+                point = (int(p.get('x', 128)), int(p.get('y', 128)))
+            elif 'boxes' in prompt_data and prompt_data['boxes']:
+                b = prompt_data['boxes'][0]
+                box = (int(b.get('x1', 0)), int(b.get('y1', 0)), int(b.get('x2', 256)), int(b.get('y2', 256)))
+            
+            # Ensure image is RGB
+            if len(image_data.shape) == 2:
+                image_data = np.stack([image_data] * 3, axis=-1)
+            elif image_data.shape[-1] == 1:
+                image_data = np.repeat(image_data, 3, axis=-1)
+            
+            mask_np, confidence = model.segment(image_data, point=point, box=box)
+        else:
+            # Legacy model path
+            image_tensor = preprocess_image(image_data).to(device)
+            prompts_tensor = parse_prompts(prompt_data).to(device)
+            
+            print(f"Image shape: {image_tensor.shape}")
+            print(f"Prompts: {prompts_tensor.shape}")
+            
+            with torch.no_grad():
+                mask = model(image_tensor, prompts_tensor)
+            
+            mask_np = mask.cpu().numpy()[0, 0]
+            confidence = None
         
         # Calculate statistics
         mask_binary = (mask_np > 0.5).astype(np.uint8)
         area_pixels = np.sum(mask_binary)
-        confidence = float(mask_np[mask_binary > 0].mean()) if area_pixels > 0 else 0.0
+        if confidence is None:
+            confidence = float(mask_np[mask_binary > 0].mean()) if area_pixels > 0 else 0.0
         
         # Encode mask as base64 PNG
         mask_img = Image.fromarray((mask_np * 255).astype(np.uint8))
@@ -279,12 +308,19 @@ def segment_with_prompts():
         mask_img.save(buffer, format='PNG')
         mask_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
         
+        # Count prompts used
+        prompts_count = 0
+        if 'points' in prompt_data:
+            prompts_count += len(prompt_data.get('points', []))
+        if 'boxes' in prompt_data:
+            prompts_count += len(prompt_data.get('boxes', []))
+        
         return jsonify({
             'success': True,
             'mask': mask_b64,
             'area_pixels': int(area_pixels),
             'confidence': confidence,
-            'prompts_used': len(prompts_tensor),
+            'prompts_used': prompts_count,
             'model': 'MedSAM2'
         })
     

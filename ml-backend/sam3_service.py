@@ -22,24 +22,29 @@ model = None
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def initialize_model():
-    """Initialize SAM3 model"""
+    """Initialize SAM3 model with pretrained weights"""
     global model
     if model is None:
         print("Initializing SAM3...")
         try:
-            # Try to load from HuggingFace
-            # from transformers import Sam3Model
-            # model = Sam3Model.from_pretrained("facebook/sam3")
-            
-            # For now, use mock implementation
-            model = create_sam3_model()
+            # Try to load pretrained SAM model
+            from sam_model import load_medical_sam
+            model = load_medical_sam()
             model.eval()
             model.to(device)
-            print(f"SAM3 loaded on {device}")
+            print(f"SAM3 loaded with pretrained weights on {device}")
         except Exception as e:
-            print(f"Error loading SAM3: {e}")
-            print("Using mock implementation")
-            model = MockSAM3()
+            print(f"Error loading pretrained model: {e}")
+            print("Falling back to custom architecture")
+            try:
+                model = create_sam3_model()
+                model.eval()
+                model.to(device)
+                print(f"SAM3 (custom) loaded on {device}")
+            except Exception as e2:
+                print(f"Error loading custom model: {e2}")
+                print("Using mock implementation")
+                model = MockSAM3()
 
 def create_sam3_model():
     """
@@ -213,17 +218,47 @@ def segment_with_point():
             return jsonify({'error': 'No point provided'}), 400
         
         point = request.json['point']
-        point_tensor = torch.tensor([[point['x'], point['y']]], dtype=torch.float32).to(device)
+        point_coords = (int(point['x']), int(point['y']))
         
-        # Preprocess
-        image_tensor = preprocess_image(image_data).to(device)
-        
-        # Segment
-        with torch.no_grad():
-            mask = model(image_tensor, 'point', point_tensor)
-        
-        # Return result
-        return format_segmentation_result(mask, 'point', {'x': point['x'], 'y': point['y']})
+        # Check if using MedicalSAM model
+        from sam_model import MedicalSAM
+        if isinstance(model, MedicalSAM):
+            # Ensure image is RGB
+            if len(image_data.shape) == 2:
+                image_data = np.stack([image_data] * 3, axis=-1)
+            elif image_data.shape[-1] == 1:
+                image_data = np.repeat(image_data, 3, axis=-1)
+            
+            mask_np, confidence = model.segment(image_data, point=point_coords)
+            
+            # Format result
+            mask_binary = (mask_np > 0.5).astype(np.uint8)
+            area_pixels = int(np.sum(mask_binary))
+            
+            # Encode mask as PNG
+            mask_img = Image.fromarray((mask_np * 255).astype(np.uint8))
+            buffer = io.BytesIO()
+            mask_img.save(buffer, format='PNG')
+            mask_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            
+            return jsonify({
+                'success': True,
+                'mask': mask_b64,
+                'segmented_pixels': area_pixels,
+                'confidence': float(confidence),
+                'prompt_type': 'point',
+                'prompt_info': {'x': point['x'], 'y': point['y']},
+                'model': 'SAM3'
+            })
+        else:
+            # Legacy model path
+            point_tensor = torch.tensor([[point['x'], point['y']]], dtype=torch.float32).to(device)
+            image_tensor = preprocess_image(image_data).to(device)
+            
+            with torch.no_grad():
+                mask = model(image_tensor, 'point', point_tensor)
+            
+            return format_segmentation_result(mask, 'point', {'x': point['x'], 'y': point['y']})
     
     except Exception as e:
         import traceback
