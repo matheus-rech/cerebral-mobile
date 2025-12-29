@@ -88,7 +88,7 @@ export default function HomeScreen() {
     router.push({
       pathname: "/viewer-3d",
       params: { 
-        imageUri: "https://niivue.github.io/niivue/images/mni152.nii.gz",
+        imageUri: "https://niivue.github.io/niivue-demo-images/mni152.nii.gz",
         title: "MNI152 Brain Template"
       },
     });

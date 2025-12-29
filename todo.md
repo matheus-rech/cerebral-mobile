@@ -546,3 +546,10 @@
 - [x] Show which model: UNet, MedSAM2, SAM3, or SynthSeg
 - [x] Add model descriptions for radiologists
 - [x] Allow easy model switching
+
+
+## New Tasks - User Requested
+- [ ] Fix NiiVue loading - host sample NIfTI files locally
+- [ ] Add interactive tap-to-place prompting for MedSAM2
+- [ ] Add interactive tap-to-place prompting for SAM3
+- [ ] Create demo video showing all 4 ML models with 3D sliders

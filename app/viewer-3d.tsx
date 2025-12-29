@@ -200,23 +200,57 @@ export default function Viewer3DScreen() {
             </View>
           )}
 
-          {/* Analyze Button */}
-          <Pressable
-            onPress={handleAnalyze}
-            style={({ pressed }) => ({
-              opacity: pressed ? 0.9 : 1,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            })}
-          >
-            <View
-              className="mt-3 p-4 rounded-xl flex-row items-center justify-center gap-2"
-              style={{ backgroundColor: currentModel.color }}
+          {/* Action Buttons */}
+          <View className="flex-row gap-2 mt-3">
+            {/* Interactive Segment Button (for MedSAM2/SAM3) */}
+            {(selectedModel === 'medsam2' || selectedModel === 'sam3') && (
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  router.push({
+                    pathname: '/interactive-segment',
+                    params: {
+                      imageUri: params.imageUri,
+                      model: selectedModel,
+                    },
+                  });
+                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  opacity: pressed ? 0.9 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                })}
+              >
+                <View
+                  className="p-4 rounded-xl flex-row items-center justify-center gap-2 border-2"
+                  style={{ borderColor: currentModel.color, backgroundColor: currentModel.color + '15' }}
+                >
+                  <Text style={{ color: currentModel.color }} className="font-bold text-base">
+                    📍 Interactive
+                  </Text>
+                </View>
+              </Pressable>
+            )}
+
+            {/* Analyze Button */}
+            <Pressable
+              onPress={handleAnalyze}
+              style={({ pressed }) => ({
+                flex: selectedModel === 'medsam2' || selectedModel === 'sam3' ? 1 : undefined,
+                opacity: pressed ? 0.9 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              })}
             >
-              <Text className="text-white font-bold text-base">
-                Analyze with {currentModel.name}
-              </Text>
-            </View>
-          </Pressable>
+              <View
+                className="p-4 rounded-xl flex-row items-center justify-center gap-2"
+                style={{ backgroundColor: currentModel.color }}
+              >
+                <Text className="text-white font-bold text-base">
+                  {selectedModel === 'medsam2' || selectedModel === 'sam3' ? '🔬 Auto' : `Analyze with ${currentModel.name}`}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
         </View>
       </View>
     </ScreenContainer>
