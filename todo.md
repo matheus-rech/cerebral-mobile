@@ -521,3 +521,28 @@
 - [x] Tested SAM3 with pretrained weights (0.194s, 52% confidence)
 - [x] Both services now use official SAM ViT-B architecture
 - [x] Inference time < 250ms per request on CPU
+
+
+## UI/UX Premium Redesign
+- [ ] Premium medical app design for home screen
+- [ ] Better visual hierarchy and spacing
+- [ ] Animated interactions and micro-interactions
+- [ ] Professional color scheme for medical app
+- [ ] Improved 3D viewer experience
+- [ ] Better loading states and feedback
+- [ ] Glassmorphism and modern design elements
+- [ ] Professional typography and iconography
+
+
+## Current Bug Fixes
+- [ ] Fix NiiVue 3D viewer WebGL rendering on web platform
+- [ ] Add interactive prompting UI for MedSAM2 (tap to segment)
+- [ ] Add interactive prompting UI for SAM3 (point/box prompts)
+
+
+## UI Fixes - User Reported
+- [x] Fix white space blocking NiiVue 3D viewer
+- [x] Replace vague "AI Vision" button with clear model selector
+- [x] Show which model: UNet, MedSAM2, SAM3, or SynthSeg
+- [x] Add model descriptions for radiologists
+- [x] Allow easy model switching

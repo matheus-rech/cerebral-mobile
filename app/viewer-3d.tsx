@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, ScrollView, Pressable, Dimensions } from "react-native";
+import { View, Text, Pressable, Dimensions, StyleSheet } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -7,10 +7,42 @@ import { ScreenContainer } from "@/components/screen-container";
 import { NiiVueViewer } from "@/components/niivue-viewer";
 import { useColors } from "@/hooks/use-colors";
 
-/**
- * 3D Viewer Screen
- * Interactive 3D visualization of MRI scans using NiiVue
- */
+// Available AI models for analysis
+const AI_MODELS = [
+  {
+    id: "unet",
+    name: "UNet",
+    description: "Lesion detection & classification",
+    useCase: "Best for: Detecting tumors, lesions, abnormalities",
+    speed: "Fast (~0.2s)",
+    color: "#0a7ea4",
+  },
+  {
+    id: "medsam2",
+    name: "MedSAM2",
+    description: "Interactive segmentation with prompts",
+    useCase: "Best for: Precise region selection with point/box prompts",
+    speed: "Fast (~0.2s)",
+    color: "#22c55e",
+  },
+  {
+    id: "sam3",
+    name: "SAM3",
+    description: "Zero-shot segmentation",
+    useCase: "Best for: Automatic structure detection without training",
+    speed: "Fast (~0.2s)",
+    color: "#f59e0b",
+  },
+  {
+    id: "synthseg",
+    name: "SynthSeg",
+    description: "Brain structure volumetrics",
+    useCase: "Best for: Full brain anatomy analysis & volume measurements",
+    speed: "Thorough (~15s)",
+    color: "#8b5cf6",
+  },
+];
+
 export default function Viewer3DScreen() {
   const params = useLocalSearchParams<{
     imageUri: string;
@@ -18,14 +50,38 @@ export default function Viewer3DScreen() {
     title?: string;
   }>();
   const colors = useColors();
+  const [selectedModel, setSelectedModel] = useState<string>("unet");
+  const [showModelPicker, setShowModelPicker] = useState(false);
 
-  const { width: screenWidth } = Dimensions.get("window");
-  const viewerSize = Math.min(screenWidth - 32, 600);
+  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  // Make viewer take most of the screen
+  const viewerWidth = screenWidth - 32;
+  const viewerHeight = screenHeight * 0.65;
 
   const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   };
+
+  const handleModelSelect = (modelId: string) => {
+    setSelectedModel(modelId);
+    setShowModelPicker(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  const handleAnalyze = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Navigate to analysis with selected model
+    router.push({
+      pathname: "/analysis",
+      params: {
+        imageUri: params.imageUri,
+        model: selectedModel,
+      },
+    });
+  };
+
+  const currentModel = AI_MODELS.find((m) => m.id === selectedModel)!;
 
   if (!params.imageUri) {
     return (
@@ -34,15 +90,7 @@ export default function Viewer3DScreen() {
           <Text className="text-xl font-bold text-foreground mb-2">
             No Image Provided
           </Text>
-          <Text className="text-base text-muted text-center mb-6">
-            Please provide an MRI image to visualize.
-          </Text>
-          <Pressable
-            onPress={handleBack}
-            style={({ pressed }) => ({
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
+          <Pressable onPress={handleBack}>
             <View className="bg-primary px-6 py-3 rounded-full">
               <Text className="text-background font-semibold">Go Back</Text>
             </View>
@@ -53,175 +101,135 @@ export default function Viewer3DScreen() {
   }
 
   return (
-    <ScreenContainer>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View className="flex-1 p-4 gap-6">
-          {/* Header */}
-          <View className="flex-row items-center gap-3">
-            <Pressable
-              onPress={handleBack}
-              style={({ pressed }) => ({
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <View className="bg-surface p-3 rounded-full border border-border">
-                <Text className="text-foreground text-lg">←</Text>
-              </View>
-            </Pressable>
-            <View className="flex-1">
-              <Text className="text-2xl font-bold text-foreground">
-                {params.title || "3D Brain Viewer"}
-              </Text>
-              <Text className="text-sm text-muted mt-1">
-                Interactive 3D visualization
-              </Text>
+    <ScreenContainer edges={["top", "left", "right"]}>
+      <View className="flex-1">
+        {/* Compact Header */}
+        <View className="flex-row items-center px-4 py-2 gap-3">
+          <Pressable onPress={handleBack} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+            <View className="bg-surface p-2 rounded-full border border-border">
+              <Text className="text-foreground text-base">←</Text>
             </View>
-          </View>
-
-          {/* 3D Viewer */}
-          <View className="bg-surface rounded-2xl overflow-hidden border border-border">
-            <NiiVueViewer
-              imageUri={params.imageUri}
-              segmentationUri={params.segmentationUri}
-              width={viewerSize}
-              height={viewerSize}
-            />
-          </View>
-
-          {/* Instructions */}
-          <View className="bg-surface rounded-2xl p-6 border border-border gap-4">
-            <Text className="text-lg font-bold text-foreground">
-              🎮 Viewer Controls
-            </Text>
-
-            <View className="gap-3">
-              <View className="flex-row gap-3">
-                <View className="bg-primary/20 px-3 py-1 rounded-lg">
-                  <Text className="text-primary font-semibold text-sm">
-                    Axial
-                  </Text>
-                </View>
-                <Text className="text-sm text-muted flex-1">
-                  View brain from top-down (horizontal slices)
-                </Text>
-              </View>
-
-              <View className="flex-row gap-3">
-                <View className="bg-primary/20 px-3 py-1 rounded-lg">
-                  <Text className="text-primary font-semibold text-sm">
-                    Coronal
-                  </Text>
-                </View>
-                <Text className="text-sm text-muted flex-1">
-                  View brain from front-back (vertical slices)
-                </Text>
-              </View>
-
-              <View className="flex-row gap-3">
-                <View className="bg-primary/20 px-3 py-1 rounded-lg">
-                  <Text className="text-primary font-semibold text-sm">
-                    Sagittal
-                  </Text>
-                </View>
-                <Text className="text-sm text-muted flex-1">
-                  View brain from side (left-right slices)
-                </Text>
-              </View>
-
-              <View className="flex-row gap-3">
-                <View className="bg-primary/20 px-3 py-1 rounded-lg">
-                  <Text className="text-primary font-semibold text-sm">3D</Text>
-                </View>
-                <Text className="text-sm text-muted flex-1">
-                  Interactive 3D volume rendering
-                </Text>
-              </View>
-
-              {params.segmentationUri && (
-                <View className="flex-row gap-3">
-                  <View className="bg-primary/20 px-3 py-1 rounded-lg">
-                    <Text className="text-primary font-semibold text-sm">
-                      Toggle Seg
-                    </Text>
-                  </View>
-                  <Text className="text-sm text-muted flex-1">
-                    Show/hide segmentation overlay
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          {/* Features */}
-          <View className="bg-surface rounded-2xl p-6 border border-border gap-3">
-            <Text className="text-lg font-bold text-foreground mb-2">
-              ✨ Features
-            </Text>
-
-            <View className="flex-row items-start gap-3">
-              <Text className="text-foreground text-base">🔄</Text>
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-foreground">
-                  Interactive Rotation
-                </Text>
-                <Text className="text-sm text-muted mt-1">
-                  Drag to rotate the 3D view in any direction
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-start gap-3">
-              <Text className="text-foreground text-base">🔍</Text>
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-foreground">
-                  Zoom & Pan
-                </Text>
-                <Text className="text-sm text-muted mt-1">
-                  Pinch to zoom, two-finger drag to pan
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-start gap-3">
-              <Text className="text-foreground text-base">📍</Text>
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-foreground">
-                  Crosshair Navigation
-                </Text>
-                <Text className="text-sm text-muted mt-1">
-                  Click to navigate through slices
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-start gap-3">
-              <Text className="text-foreground text-base">🎨</Text>
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-foreground">
-                  Overlay Visualization
-                </Text>
-                <Text className="text-sm text-muted mt-1">
-                  View segmentation results overlaid on original scan
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Technical Info */}
-          <View className="bg-surface rounded-2xl p-6 border border-border">
-            <Text className="text-sm text-muted leading-relaxed">
-              <Text className="font-semibold text-foreground">
-                Powered by NiiVue
-              </Text>
-              {"\n"}
-              NiiVue is a WebGL-based medical image viewer that provides
-              high-performance 3D visualization of neuroimaging data directly in
-              the browser. It supports multiple viewing modes, interactive
-              controls, and real-time rendering of volumetric data.
+          </Pressable>
+          <View className="flex-1">
+            <Text className="text-lg font-bold text-foreground" numberOfLines={1}>
+              {params.title || "3D Brain Viewer"}
             </Text>
           </View>
         </View>
-      </ScrollView>
+
+        {/* Full-width NiiVue Viewer */}
+        <View style={[styles.viewerContainer, { height: viewerHeight }]}>
+          <NiiVueViewer
+            imageUri={params.imageUri}
+            segmentationUri={params.segmentationUri}
+            width={viewerWidth}
+            height={viewerHeight}
+          />
+        </View>
+
+        {/* Model Selector - Always visible at bottom */}
+        <View className="px-4 py-3 bg-background border-t border-border">
+          {/* Current Model Display */}
+          <Pressable
+            onPress={() => setShowModelPicker(!showModelPicker)}
+            style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+          >
+            <View 
+              className="flex-row items-center justify-between p-3 rounded-xl"
+              style={{ backgroundColor: currentModel.color + "20" }}
+            >
+              <View className="flex-row items-center gap-3">
+                <View 
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: currentModel.color }}
+                />
+                <View>
+                  <Text className="text-base font-bold text-foreground">
+                    {currentModel.name}
+                  </Text>
+                  <Text className="text-xs text-muted">
+                    {currentModel.description}
+                  </Text>
+                </View>
+              </View>
+              <Text className="text-muted text-lg">
+                {showModelPicker ? "▲" : "▼"}
+              </Text>
+            </View>
+          </Pressable>
+
+          {/* Model Picker Dropdown */}
+          {showModelPicker && (
+            <View className="mt-2 bg-surface rounded-xl border border-border overflow-hidden">
+              {AI_MODELS.map((model) => (
+                <Pressable
+                  key={model.id}
+                  onPress={() => handleModelSelect(model.id)}
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.7 : 1,
+                    backgroundColor: selectedModel === model.id ? model.color + "15" : "transparent",
+                  })}
+                >
+                  <View className="p-3 border-b border-border/50">
+                    <View className="flex-row items-center gap-3">
+                      <View
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: model.color }}
+                      />
+                      <View className="flex-1">
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-base font-bold text-foreground">
+                            {model.name}
+                          </Text>
+                          <Text className="text-xs text-muted">{model.speed}</Text>
+                        </View>
+                        <Text className="text-xs text-muted mt-0.5">
+                          {model.description}
+                        </Text>
+                        <Text className="text-xs text-primary mt-1">
+                          {model.useCase}
+                        </Text>
+                      </View>
+                      {selectedModel === model.id && (
+                        <Text className="text-primary text-lg">✓</Text>
+                      )}
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {/* Analyze Button */}
+          <Pressable
+            onPress={handleAnalyze}
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.9 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
+          >
+            <View
+              className="mt-3 p-4 rounded-xl flex-row items-center justify-center gap-2"
+              style={{ backgroundColor: currentModel.color }}
+            >
+              <Text className="text-white font-bold text-base">
+                Analyze with {currentModel.name}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      </View>
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  viewerContainer: {
+    flex: 1,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#0a0a0a",
+  },
+});

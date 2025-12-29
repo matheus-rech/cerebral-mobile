@@ -31,6 +31,13 @@ const MAPPING = {
   "square": "crop-square",
   "chevron.up": "expand-less",
   "chevron.down": "expand-more",
+  "gearshape.fill": "settings",
+  "arrow.down.doc": "file-download",
+  "doc.text": "description",
+  "brain": "psychology",
+  "waveform": "graphic-eq",
+  "cube": "view-in-ar",
+  "slider.horizontal.3": "tune",
 } as IconMapping;
 
 /**
