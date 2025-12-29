@@ -432,3 +432,37 @@
 - [ ] Test with real MRI images from BraTS dataset
 - [ ] Calculate accuracy metrics with ground truth (Dice, IoU, Hausdorff)
 - [ ] Validate all models with real clinical data
+
+## Comprehensive Testing with Real Data (v1.11)
+- [ ] Download MedSAM2 pretrained weights from Zenodo (2.4 GB)
+- [ ] Download SAM3 pretrained weights from HuggingFace (2.5 GB)
+- [ ] Download BraTS 2020 dataset sample from Kaggle
+- [ ] Integrate MedSAM2 weights into medsam2_service.py
+- [ ] Integrate SAM3 weights into sam3_service.py
+- [ ] Test SynthSeg with official weights on real MRI
+- [ ] Test MedSAM2 with official weights on real MRI
+- [ ] Test SAM3 with official weights on real MRI
+- [ ] Test UNet with real MRI data
+- [ ] Calculate Dice scores against ground truth
+- [ ] Calculate IoU metrics against ground truth
+- [ ] Test enhanced viewer with real multi-slice volumes
+- [ ] Test windowing controls with real DICOM data
+- [ ] Test overlay opacity with real segmentation masks
+- [ ] Generate QR code for device testing
+- [ ] Test on iOS device with Expo Go
+- [ ] Test on Android device with Expo Go
+- [ ] Document all test results and accuracy metrics
+
+## UI Functionality Issues (v1.11 - FIXED)
+- [x] Identify which UI features are not working (missing useState import)
+- [x] Fix missing useState import in DICOM file picker
+- [x] Verify TypeScript compilation (0 errors)
+- [x] Run all tests (305 passing)
+- [ ] Test upload MRI image flow on device
+- [ ] Test upload DICOM file flow on device
+- [ ] Test HuggingFace dataset loading on device
+- [ ] Test navigation between tabs on device
+- [ ] Test settings screen functionality on device
+- [ ] Test model configuration screen on device
+- [ ] Test async demo screen on device
+- [ ] Test enhanced MRI viewer controls on device
