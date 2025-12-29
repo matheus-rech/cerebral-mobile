@@ -466,3 +466,20 @@
 - [ ] Test model configuration screen on device
 - [ ] Test async demo screen on device
 - [ ] Test enhanced MRI viewer controls on device
+
+## ML Infrastructure Setup & Comparison View (v1.12)
+- [x] Check ML weight download progress (MedSAM2: 1%, SAM3: 9%, SynthSeg: complete)
+- [x] Install Python ML dependencies in virtual environment
+- [x] Restart UNet service with proper dependencies (running, 543MB RAM)
+- [x] Test UNet service with synthetic MRI (service working, model needs real data)
+- [ ] Test MedSAM2 service with synthetic MRI (weights still downloading)
+- [ ] Test SAM3 service with synthetic MRI (weights still downloading)
+- [ ] Calculate accuracy metrics (Dice, IoU) with real MRI data
+- [x] Design side-by-side comparison component
+- [x] Implement split view with synchronized zoom/pan
+- [x] Add toggle button for single/split view modes
+- [x] Add icon mappings for comparison view
+- [x] Create comparison screen route
+- [x] Integrate comparison view button into analysis screen
+- [x] Write tests for comparison component (18 tests passing)
+- [x] Test complete workflow (323 tests passing)

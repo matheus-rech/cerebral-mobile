@@ -132,6 +132,21 @@ export default function AnalysisScreen() {
               </Pressable>
 
               <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: "/comparison" as any,
+                    params: {
+                      imageUri: params.imageUri,
+                    },
+                  });
+                }}
+                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+              >
+                <IconSymbol name="square.split.2x1" size={24} color={colors.foreground} />
+              </Pressable>
+
+              <Pressable
                 onPress={handleSave}
                 disabled={saving}
                 style={({ pressed }) => ({ opacity: pressed || saving ? 0.6 : 1 })}

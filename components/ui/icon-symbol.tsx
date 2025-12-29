@@ -27,6 +27,8 @@ const MAPPING = {
   "xmark": "close",
   "square.and.arrow.up": "share",
   "trash": "delete",
+  "square.split.2x1": "view-column",
+  "square": "crop-square",
 } as IconMapping;
 
 /**

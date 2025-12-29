@@ -74,3 +74,6 @@ ml-backend/weights/
 *.pth
 *.ckpt
 *.safetensors
+
+# Python virtual environment
+ml-backend/venv/
