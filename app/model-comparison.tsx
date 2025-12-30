@@ -66,28 +66,39 @@ export default function ModelComparisonScreen() {
 
     const modelResults: ModelResult[] = [];
 
+    // Get API base URL - use relative path for web, or construct for native
+    const getApiBaseUrl = () => {
+      if (typeof window !== 'undefined' && window.location) {
+        // Web: use relative path which will be proxied
+        return '';
+      }
+      // Native: use the API server URL
+      return 'http://localhost:3000';
+    };
+    const apiBase = getApiBaseUrl();
+
     try {
-      // Run all models in parallel
+      // Run all models in parallel through the Node.js proxy
       const promises = models.map(async (model) => {
         const startTime = Date.now();
 
         try {
           let endpoint = '';
-          let body: any = { image: params.imageUri };
+          let body: any = { imageUri: params.imageUri };
 
-          // Configure endpoint based on model
+          // Configure endpoint based on model - use Node.js proxy routes
           if (model.name === 'UNet') {
-            endpoint = `http://localhost:${model.port}/detect`;
+            endpoint = `${apiBase}/api/ml/unet/detect`;
           } else if (model.name === 'MedSAM2') {
-            endpoint = `http://localhost:${model.port}/segment`;
+            endpoint = `${apiBase}/api/ml/medsam2/segment`;
             body.prompts = {
               boxes: [{ x: 64, y: 64, w: 128, h: 128 }], // Center region
             };
           } else if (model.name === 'SAM3') {
-            endpoint = `http://localhost:${model.port}/segment-point`;
+            endpoint = `${apiBase}/api/ml/sam3/segment-point`;
             body.point = { x: 128, y: 128 }; // Center point
           } else if (model.name === 'SynthSeg') {
-            endpoint = `http://localhost:${model.port}/segment`;
+            endpoint = `${apiBase}/api/ml/synthseg/segment`;
           }
 
           const response = await fetch(endpoint, {
@@ -99,12 +110,21 @@ export default function ModelComparisonScreen() {
           const result = await response.json();
           const inferenceTime = Date.now() - startTime;
 
-          if (result.success || result.mask) {
+          if (result.success || result.mask || result.mask_base64 || result.segmentation_overlay) {
+            // Handle different response formats from various models
+            let maskData = result.mask || result.mask_base64 || result.overlay || result.segmentation_overlay;
+            let maskUri = maskData;
+            
+            // Add data URI prefix if not already present
+            if (maskData && !maskData.startsWith('data:')) {
+              maskUri = `data:image/png;base64,${maskData}`;
+            }
+            
             return {
               model: model.name,
-              maskUri: `data:image/png;base64,${result.mask || result.overlay}`,
-              confidence: result.confidence || 0.85,
-              areaPixels: result.area_pixels || result.total_area || 0,
+              maskUri: maskUri || '',
+              confidence: result.confidence || result.quality_score || 0.85,
+              areaPixels: result.area_pixels || result.total_area || result.area || 0,
               inferenceTime,
             };
           }

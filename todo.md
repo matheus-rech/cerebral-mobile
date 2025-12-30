@@ -740,3 +740,12 @@
 - [x] Fix SynthSeg to display actual MRI overlay instead of placeholder illustration
 - [x] Replace generic brain blob diagram with real segmentation on MRI
 - [x] Show color-coded regions overlaid on the actual uploaded image
+
+
+## Tap-to-Highlight, NIfTI Fix, and Model Comparison (Dec 30, 2024)
+- [x] Fix NIfTI parsing error for brain_lesion.nii.gz
+- [x] Fix model comparison functionality
+- [x] Implement tap-to-highlight brain region feature
+- [x] Add selected region state to analysis screen
+- [x] Update overlay to highlight only selected region
+- [x] Add visual feedback for selected region in list

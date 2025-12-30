@@ -99,6 +99,7 @@ export default function AnalysisScreen() {
   const [report, setReport] = useState<MRIAnalysisReport | null>(null);
   const [synthSegOverlay, setSynthSegOverlay] = useState<string | null>(null);
   const [synthSegStructures, setSynthSegStructures] = useState<any[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const hasAutoAnalyzed = useRef(false);
 
@@ -561,41 +562,78 @@ export default function AnalysisScreen() {
             {synthSegOverlay && selectedModel.id === 'synthseg' && (
               <View className="px-4">
                 <View className="bg-surface rounded-2xl p-4 border border-border">
-                  <Text className="text-lg font-bold text-foreground mb-3">🧠 Brain Structure Segmentation</Text>
+                  <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-lg font-bold text-foreground">🧠 Brain Structure Segmentation</Text>
+                    {selectedRegion && (
+                      <View className="bg-primary/20 px-2 py-1 rounded-full">
+                        <Text className="text-xs text-primary font-semibold">{selectedRegion}</Text>
+                      </View>
+                    )}
+                  </View>
                   <View className="rounded-xl overflow-hidden" style={{ height: 320 }}>
                     <Image 
                       source={{ uri: synthSegOverlay }} 
                       style={{ width: '100%', height: '100%' }}
                       resizeMode="contain"
                     />
+                    {/* Highlight indicator for selected region */}
+                    {selectedRegion && (
+                      <View 
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          backgroundColor: 'transparent',
+                          borderWidth: 3,
+                          borderColor: synthSegStructures.find(s => s.name === selectedRegion)?.color || '#0a7ea4',
+                          borderRadius: 12,
+                        }}
+                      />
+                    )}
                   </View>
                   <View className="mt-3 flex-row flex-wrap gap-2 justify-center">
-                    <View className="flex-row items-center gap-1">
-                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#4169E1' }} />
-                      <Text className="text-xs text-muted">Ventricles</Text>
-                    </View>
-                    <View className="flex-row items-center gap-1">
-                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#00FF00' }} />
-                      <Text className="text-xs text-muted">Thalamus</Text>
-                    </View>
-                    <View className="flex-row items-center gap-1">
-                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#FFFF00' }} />
-                      <Text className="text-xs text-muted">Hippocampus</Text>
-                    </View>
-                    <View className="flex-row items-center gap-1">
-                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#FF69B4' }} />
-                      <Text className="text-xs text-muted">Putamen</Text>
-                    </View>
-                    <View className="flex-row items-center gap-1">
-                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#8B0000' }} />
-                      <Text className="text-xs text-muted">Cerebellum</Text>
-                    </View>
-                    <View className="flex-row items-center gap-1">
-                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#66CDAA' }} />
-                      <Text className="text-xs text-muted">Amygdala</Text>
-                    </View>
+                    {[
+                      { name: 'Ventricles', color: '#4169E1' },
+                      { name: 'Thalamus', color: '#00FF00' },
+                      { name: 'Hippocampus', color: '#FFFF00' },
+                      { name: 'Putamen', color: '#FF69B4' },
+                      { name: 'Cerebellum', color: '#8B0000' },
+                      { name: 'Amygdala', color: '#66CDAA' },
+                    ].map((region) => {
+                      const isHighlighted = selectedRegion?.toLowerCase().includes(region.name.toLowerCase());
+                      return (
+                        <Pressable
+                          key={region.name}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            // Find matching structure in the list
+                            const matchingStructure = synthSegStructures.find(
+                              s => s.name.toLowerCase().includes(region.name.toLowerCase())
+                            );
+                            if (matchingStructure) {
+                              setSelectedRegion(selectedRegion === matchingStructure.name ? null : matchingStructure.name);
+                            }
+                          }}
+                          style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                        >
+                          <View className={`flex-row items-center gap-1 px-2 py-1 rounded-full ${isHighlighted ? 'bg-primary/20' : ''}`}>
+                            <View 
+                              className={`w-3 h-3 rounded-full ${isHighlighted ? 'border-2 border-primary' : ''}`}
+                              style={{ backgroundColor: region.color }} 
+                            />
+                            <Text className={`text-xs ${isHighlighted ? 'text-primary font-semibold' : 'text-muted'}`}>
+                              {region.name}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
                   </View>
-                  <Text className="text-xs text-muted text-center mt-2">Color-coded brain structure overlay (32 regions)</Text>
+                  <Text className="text-xs text-muted text-center mt-2">
+                    {selectedRegion ? `Highlighting: ${selectedRegion}` : 'Tap a region to highlight'}
+                  </Text>
                 </View>
               </View>
             )}
@@ -604,31 +642,58 @@ export default function AnalysisScreen() {
             {synthSegStructures.length > 0 && selectedModel.id === 'synthseg' && (
               <View className="px-4">
                 <View className="bg-surface rounded-2xl p-4 border border-border">
-                  <Text className="text-lg font-bold text-foreground mb-3">📊 Brain Structure Volumes</Text>
+                  <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-lg font-bold text-foreground">📊 Brain Structure Volumes</Text>
+                    {selectedRegion && (
+                      <Pressable
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setSelectedRegion(null);
+                        }}
+                        style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                      >
+                        <Text className="text-xs text-primary">Clear Selection</Text>
+                      </Pressable>
+                    )}
+                  </View>
                   <View className="gap-2">
-                    {synthSegStructures.slice(0, 12).map((structure: any, index: number) => (
-                      <View key={index} className="flex-row items-center justify-between bg-background rounded-lg p-2 border border-border">
-                        <View className="flex-row items-center gap-2 flex-1">
+                    {synthSegStructures.slice(0, 12).map((structure: any, index: number) => {
+                      const isSelected = selectedRegion === structure.name;
+                      return (
+                        <Pressable
+                          key={index}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSelectedRegion(isSelected ? null : structure.name);
+                          }}
+                          style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                        >
                           <View 
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: structure.color || '#8B5CF6' }}
-                          />
-                          <Text className="text-sm text-foreground flex-1" numberOfLines={1}>
-                            {structure.name}
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center gap-3">
-                          <Text className="text-sm font-semibold text-foreground">
-                            {structure.volume_ml?.toFixed(1)} ml
-                          </Text>
-                          <View className={`px-2 py-0.5 rounded ${structure.status === 'normal' ? 'bg-success/20' : structure.status === 'low' ? 'bg-error/20' : 'bg-warning/20'}`}>
-                            <Text className={`text-xs font-semibold ${structure.status === 'normal' ? 'text-success' : structure.status === 'low' ? 'text-error' : 'text-warning'}`}>
-                              {structure.percentile}%ile
-                            </Text>
+                            className={`flex-row items-center justify-between rounded-lg p-2 border ${isSelected ? 'bg-primary/10 border-primary' : 'bg-background border-border'}`}
+                          >
+                            <View className="flex-row items-center gap-2 flex-1">
+                              <View 
+                                className={`w-4 h-4 rounded-full ${isSelected ? 'border-2 border-primary' : ''}`}
+                                style={{ backgroundColor: structure.color || '#8B5CF6' }}
+                              />
+                              <Text className={`text-sm flex-1 ${isSelected ? 'text-primary font-semibold' : 'text-foreground'}`} numberOfLines={1}>
+                                {structure.name}
+                              </Text>
+                            </View>
+                            <View className="flex-row items-center gap-3">
+                              <Text className={`text-sm font-semibold ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                                {structure.volume_ml?.toFixed(1)} ml
+                              </Text>
+                              <View className={`px-2 py-0.5 rounded ${structure.status === 'normal' ? 'bg-success/20' : structure.status === 'low' ? 'bg-error/20' : 'bg-warning/20'}`}>
+                                <Text className={`text-xs font-semibold ${structure.status === 'normal' ? 'text-success' : structure.status === 'low' ? 'text-error' : 'text-warning'}`}>
+                                  {structure.percentile}%ile
+                                </Text>
+                              </View>
+                            </View>
                           </View>
-                        </View>
-                      </View>
-                    ))}
+                        </Pressable>
+                      );
+                    })}
                     {synthSegStructures.length > 12 && (
                       <Text className="text-xs text-muted text-center mt-2">
                         + {synthSegStructures.length - 12} more structures
