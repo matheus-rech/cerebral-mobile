@@ -1,5 +1,5 @@
 import { View, Text, Pressable, ActivityIndicator, Alert, Share, ScrollView } from "react-native";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -64,13 +64,31 @@ export default function AnalysisScreen() {
     imageUri: string;
     source?: string;
     datasetId?: string;
+    model?: string;
   }>();
 
-  const [selectedModel, setSelectedModel] = useState(ML_MODELS[0]);
+  // Find the model from params or default to first
+  const initialModel = params.model 
+    ? ML_MODELS.find(m => m.id === params.model) || ML_MODELS[0]
+    : ML_MODELS[0];
+  const [selectedModel, setSelectedModel] = useState(initialModel);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [report, setReport] = useState<MRIAnalysisReport | null>(null);
   const [saving, setSaving] = useState(false);
+  const hasAutoAnalyzed = useRef(false);
+
+  // Auto-analyze when coming from viewer with model pre-selected
+  useEffect(() => {
+    if (params.model && !hasAutoAnalyzed.current && params.imageUri) {
+      hasAutoAnalyzed.current = true;
+      // Small delay to ensure component is mounted
+      const timer = setTimeout(() => {
+        handleAnalyze();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [params.model, params.imageUri]);
 
   const handleAnalyze = async () => {
     try {

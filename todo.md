@@ -608,3 +608,9 @@
 - [x] Add prompt suggestions/examples for common segmentation tasks
 - [x] Test with various natural language prompts
 - [x] Handle cloud backend unavailable gracefully
+
+
+## Bug Fixes
+- [x] Fix "Analyze with Model" button not triggering analysis in 3D viewer
+- [x] Add auto-analyze when navigating from 3D viewer with model pre-selected
+- [x] Fix model parameter passing from viewer-3d to analysis screen
