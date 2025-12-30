@@ -136,7 +136,7 @@ def medsam2_segment():
         "model": "MedSAM2",
         "confidence": confidence,
         "area_pixels": area,
-        "mask": generate_mock_mask(),
+        "mask_base64": generate_mock_mask(),
         "inference_time": "0.2s",
         "prompt_type": "text" if text_prompt else ("point" if points else "box"),
         "num_prompts": len(points) + len(boxes) + (1 if text_prompt else 0)
@@ -145,8 +145,8 @@ def medsam2_segment():
 
 # ============ SAM3 Service (Port 5006) ============
 @app.route('/segment-point', methods=['POST'])
-def sam3_segment():
-    """SAM3 zero-shot segmentation endpoint"""
+def sam3_segment_point():
+    """SAM3 point-based segmentation endpoint"""
     data = request.json or {}
     
     import time
@@ -160,9 +160,55 @@ def sam3_segment():
         "model": "SAM3",
         "confidence": confidence,
         "area_pixels": area,
-        "mask": generate_mock_mask(),
+        "mask_base64": generate_mock_mask(),
         "inference_time": "0.2s",
         "auto_detected_regions": random.randint(3, 8)
+    })
+
+
+@app.route('/segment-box', methods=['POST'])
+def sam3_segment_box():
+    """SAM3 box-based segmentation endpoint"""
+    data = request.json or {}
+    
+    import time
+    time.sleep(0.2)
+    
+    confidence = random.uniform(0.55, 0.92)
+    area = random.randint(1000, 10000)
+    
+    return jsonify({
+        "success": True,
+        "model": "SAM3",
+        "confidence": confidence,
+        "area_pixels": area,
+        "mask_base64": generate_mock_mask(),
+        "inference_time": "0.2s",
+        "auto_detected_regions": random.randint(2, 6)
+    })
+
+
+@app.route('/segment-text', methods=['POST'])
+def sam3_segment_text():
+    """SAM3 text-based segmentation endpoint"""
+    data = request.json or {}
+    text_prompt = data.get('text', '')
+    
+    import time
+    time.sleep(0.3)
+    
+    confidence = random.uniform(0.40, 0.85)
+    area = random.randint(500, 8000)
+    
+    return jsonify({
+        "success": True,
+        "model": "SAM3",
+        "confidence": confidence,
+        "area_pixels": area,
+        "mask_base64": generate_mock_mask(),
+        "inference_time": "0.3s",
+        "text_prompt": text_prompt,
+        "detected_structure": text_prompt.replace('segment the ', '').title() if text_prompt else 'Unknown'
     })
 
 

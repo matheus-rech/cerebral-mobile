@@ -614,3 +614,17 @@
 - [x] Fix "Analyze with Model" button not triggering analysis in 3D viewer
 - [x] Add auto-analyze when navigating from 3D viewer with model pre-selected
 - [x] Fix model parameter passing from viewer-3d to analysis screen
+
+
+## SAM3 Bug Fix
+- [ ] Debug SAM3 segmentation button not working
+- [ ] Fix SAM3 API endpoint connection
+- [ ] Test SAM3 with point prompts
+
+## Cloud ML API Integration
+- [ ] Explore Skywork Medical Imaging MCP (https://skywork.ai/skypage/en/medical-imaging-ai-dicom-mcp)
+- [ ] Explore OpenNeuro API (https://docs.openneuro.org/git.html)
+- [ ] Integrate Skywork MCP for DICOM analysis
+- [ ] Add OpenNeuro dataset access for real MRI data
+- [ ] Replace mock ML service with cloud API connections
+- [ ] Add fallback between local and cloud inference

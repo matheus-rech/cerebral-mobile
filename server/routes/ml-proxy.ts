@@ -7,13 +7,14 @@ import { Router } from 'express';
 
 const router = Router();
 
-// ML Backend service URLs
-const SYNTHSEG_URL = process.env.SYNTHSEG_URL || 'http://localhost:5001';
-const MONAI_URL = process.env.MONAI_URL || 'http://localhost:5002';
-const UNET_URL = process.env.UNET_URL || 'http://localhost:5003';
-const LESION_3D_URL = process.env.LESION_3D_URL || 'http://localhost:5004';
-const MEDSAM2_URL = process.env.MEDSAM2_URL || 'http://localhost:5005';
-const SAM3_URL = process.env.SAM3_URL || 'http://localhost:5006';
+// ML Backend service URLs - All services use unified mock backend on port 5003
+const ML_BACKEND_URL = process.env.ML_BACKEND_URL || 'http://localhost:5003';
+const SYNTHSEG_URL = process.env.SYNTHSEG_URL || ML_BACKEND_URL;
+const MONAI_URL = process.env.MONAI_URL || ML_BACKEND_URL;
+const UNET_URL = process.env.UNET_URL || ML_BACKEND_URL;
+const LESION_3D_URL = process.env.LESION_3D_URL || ML_BACKEND_URL;
+const MEDSAM2_URL = process.env.MEDSAM2_URL || ML_BACKEND_URL;
+const SAM3_URL = process.env.SAM3_URL || ML_BACKEND_URL;
 
 /**
  * Helper function to convert image URI to base64

@@ -27,6 +27,22 @@ type Box = { x: number; y: number; w: number; h: number };
 // Sample 2D brain MRI for interactive segmentation
 const SAMPLE_BRAIN_IMAGE = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663137033311/UtSgKTGfBEuLHewA.jpg';
 
+// Get API base URL for server requests
+const getApiBaseUrl = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    const protocol = window.location.protocol;
+    // Handle sandbox URLs like 8081-xxx.us2.manus.computer -> 3000-xxx.us2.manus.computer
+    if (host.includes('.manus.computer') && host.match(/^\d+-/)) {
+      const apiHost = host.replace(/^\d+-/, '3000-');
+      return `${protocol}//${apiHost}`;
+    }
+    // Local development: use same host but port 3000
+    return `${protocol}//${host}:3000`;
+  }
+  return 'http://localhost:3000';
+};
+
 // Check if URL is a NIfTI file (which needs NiiVue to render)
 const isNiftiUrl = (url: string) => url?.includes('.nii') || url?.includes('.nii.gz');
 
@@ -142,6 +158,8 @@ export default function InteractiveSegmentScreen() {
     try {
       // Use tRPC to call the server proxy
       let result: any;
+      const apiBase = getApiBaseUrl();
+      console.log('API Base URL:', apiBase);
       
       if (promptType === 'point' && points.length > 0) {
         const lastPoint = points[points.length - 1];
@@ -153,7 +171,7 @@ export default function InteractiveSegmentScreen() {
         
         if (selectedModel === 'medsam2') {
           // Call MedSAM2 via server proxy
-          const response = await fetch('/api/ml/medsam2/segment', {
+          const response = await fetch(`${getApiBaseUrl()}/api/ml/medsam2/segment`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -164,7 +182,10 @@ export default function InteractiveSegmentScreen() {
           result = await response.json();
         } else {
           // Call SAM3 via server proxy
-          const response = await fetch('/api/ml/sam3/segment-point', {
+          const url = `${apiBase}/api/ml/sam3/segment-point`;
+          console.log('SAM3 fetch URL:', url);
+          console.log('SAM3 request body:', { imageUri: actualImageUri, point: normalizedPoint });
+          const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -172,7 +193,9 @@ export default function InteractiveSegmentScreen() {
               point: normalizedPoint,
             }),
           });
+          console.log('SAM3 response status:', response.status);
           result = await response.json();
+          console.log('SAM3 result:', result);
         }
       } else if (promptType === 'box' && boxes.length > 0) {
         const lastBox = boxes[boxes.length - 1];
@@ -185,7 +208,7 @@ export default function InteractiveSegmentScreen() {
         };
         
         if (selectedModel === 'medsam2') {
-          const response = await fetch('/api/ml/medsam2/segment', {
+          const response = await fetch(`${getApiBaseUrl()}/api/ml/medsam2/segment`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -195,7 +218,7 @@ export default function InteractiveSegmentScreen() {
           });
           result = await response.json();
         } else {
-          const response = await fetch('/api/ml/sam3/segment-box', {
+          const response = await fetch(`${getApiBaseUrl()}/api/ml/sam3/segment-box`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -229,7 +252,7 @@ export default function InteractiveSegmentScreen() {
           } catch (neuroError) {
             console.error('NeuroSAM3 error:', neuroError);
             // Fall back to local backend
-            const response = await fetch('/api/ml/sam3/segment-text', {
+            const response = await fetch(`${getApiBaseUrl()}/api/ml/sam3/segment-text`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -241,7 +264,7 @@ export default function InteractiveSegmentScreen() {
           }
         } else {
           // Use local backend
-          const response = await fetch('/api/ml/sam3/segment-text', {
+          const response = await fetch(`${getApiBaseUrl()}/api/ml/sam3/segment-text`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
