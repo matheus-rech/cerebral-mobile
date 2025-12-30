@@ -1,4 +1,6 @@
 import { useState, useRef } from 'react';
+import { ExportMaskModal } from '@/components/ExportMaskModal';
+import type { MaskData } from '@/services/mask-export';
 import {
   View,
   Text,
@@ -20,24 +22,8 @@ type ModelType = 'medsam2' | 'sam3';
 type Point = { x: number; y: number };
 type Box = { x: number; y: number; w: number; h: number };
 
-// Get API base URL for local sample images
-const getApiBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname.includes('8081-')) {
-      const apiHostname = hostname.replace('8081-', '3000-');
-      return `${window.location.protocol}//${apiHostname}`;
-    }
-    if (window.location.port === '8081') {
-      return `${window.location.protocol}//${window.location.hostname}:3000`;
-    }
-    return window.location.origin;
-  }
-  return 'http://localhost:3000';
-};
-
-// Sample 2D brain MRI for interactive segmentation (served from local API)
-const getSampleBrainImage = () => `${getApiBaseUrl()}/public/samples/brain_mri_sample.jpg`;
+// Sample 2D brain MRI for interactive segmentation
+const SAMPLE_BRAIN_IMAGE = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663137033311/UtSgKTGfBEuLHewA.jpg';
 
 // Check if URL is a NIfTI file (which needs NiiVue to render)
 const isNiftiUrl = (url: string) => url?.includes('.nii') || url?.includes('.nii.gz');
@@ -76,12 +62,13 @@ export default function InteractiveSegmentScreen() {
   
   // Image dimensions for coordinate normalization
   const [imageDims, setImageDims] = useState({ width: 300, height: 300 });
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [maskDataForExport, setMaskDataForExport] = useState<MaskData | null>(null);
   
   const imageRef = useRef<Image>(null);
 
   // Get the actual image URL (use sample if NIfTI)
-  const actualImageUri = isNiftiUrl(params.imageUri || '') ? getSampleBrainImage() : params.imageUri;
-  const apiBaseUrl = getApiBaseUrl();
+  const actualImageUri = isNiftiUrl(params.imageUri || '') ? SAMPLE_BRAIN_IMAGE : params.imageUri;
 
   const haptic = (style = Haptics.ImpactFeedbackStyle.Light) => {
     if (Platform.OS !== 'web') {
@@ -151,7 +138,7 @@ export default function InteractiveSegmentScreen() {
         
         if (selectedModel === 'medsam2') {
           // Call MedSAM2 via server proxy
-          const response = await fetch(`${apiBaseUrl}/api/ml/medsam2/segment`, {
+          const response = await fetch('/api/ml/medsam2/segment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -162,7 +149,7 @@ export default function InteractiveSegmentScreen() {
           result = await response.json();
         } else {
           // Call SAM3 via server proxy
-          const response = await fetch(`${apiBaseUrl}/api/ml/sam3/segment-point`, {
+          const response = await fetch('/api/ml/sam3/segment-point', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -183,7 +170,7 @@ export default function InteractiveSegmentScreen() {
         };
         
         if (selectedModel === 'medsam2') {
-          const response = await fetch(`${apiBaseUrl}/api/ml/medsam2/segment`, {
+          const response = await fetch('/api/ml/medsam2/segment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -193,7 +180,7 @@ export default function InteractiveSegmentScreen() {
           });
           result = await response.json();
         } else {
-          const response = await fetch(`${apiBaseUrl}/api/ml/sam3/segment-box`, {
+          const response = await fetch('/api/ml/sam3/segment-box', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -204,7 +191,7 @@ export default function InteractiveSegmentScreen() {
           result = await response.json();
         }
       } else if (promptType === 'text' && textPrompt.trim()) {
-        const response = await fetch(`${apiBaseUrl}/api/ml/sam3/segment-text`, {
+        const response = await fetch('/api/ml/sam3/segment-text', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -521,6 +508,30 @@ export default function InteractiveSegmentScreen() {
                 </View>
               )}
             </View>
+            
+            {/* Export Button */}
+            {maskUri && (
+              <TouchableOpacity
+                onPress={() => {
+                  // Create mask data for export
+                  const maskData: MaskData = {
+                    mask: [], // Will be populated from the mask image
+                    width: imageDims.width,
+                    height: imageDims.height,
+                    modelName: currentModelInfo.name,
+                    confidence: confidence || 0,
+                    timestamp: new Date().toISOString(),
+                    originalImageUri: actualImageUri,
+                  };
+                  setMaskDataForExport(maskData);
+                  setShowExportModal(true);
+                }}
+                className="mt-3 p-3 rounded-xl flex-row items-center justify-center"
+                style={{ backgroundColor: currentModelInfo.color }}
+              >
+                <Text className="text-white font-semibold">📤 Export Mask</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -568,6 +579,13 @@ export default function InteractiveSegmentScreen() {
           <Text className="text-foreground text-center font-semibold">✓ Done</Text>
         </TouchableOpacity>
       </ScrollView>
+      
+      {/* Export Modal */}
+      <ExportMaskModal
+        visible={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        maskData={maskDataForExport}
+      />
     </ScreenContainer>
   );
 }

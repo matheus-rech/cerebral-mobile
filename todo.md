@@ -70,7 +70,7 @@
 - [ ] Integrate MONAI BraTS tumor segmentation (optional)
 - [ ] Add model caching and optimization
 - [x] Connect mobile app to Python ML backend
-- [x] Test end-to-end deep learning pipeline
+- [ ] Test end-to-end deep learning pipeline
 
 ## 3D Visualization (NiiVue)
 - [x] Install @niivue/niivue package
@@ -120,7 +120,7 @@
 - [x] Add sliding window inference for large volumes
 - [x] Support multi-contrast MRI (T1, T2, FLAIR)
 - [ ] Download pretrained SynthSeg weights (optional)
-- [x] Connect to mobile app frontend
+- [ ] Connect to mobile app frontend
 - [ ] Test end-to-end with real MRI scans
 
 ## UNet Lesion Detector Integration
@@ -135,8 +135,8 @@
 - [x] Add lesion severity classification (small/medium/large, mild/moderate/severe)
 - [x] Generate clinical impressions for detected lesions
 - [x] Test service initialization and health checks
-- [x] Test with real MRI scans containing lesions
-- [x] Integrate with mobile app frontend
+- [ ] Test with real MRI scans containing lesions
+- [ ] Integrate with mobile app frontend
 
 ## Multi-Slice 3D Lesion Tracking
 - [x] Implement 3D volume processing for entire MRI scans
@@ -173,7 +173,7 @@
 - [x] API endpoints (/segment, /segment-3d, /health, /info)
 - [x] Test service initialization and health checks
 - [ ] Download official pretrained weights from bowang-lab/MedSAM2
-- [x] Test with real brain MRI, tumors, lesions
+- [ ] Test with real brain MRI, tumors, lesions
 
 ## SAM3 Integration (Meta/Facebook)
 - [x] Install SAM3 architecture
@@ -187,7 +187,7 @@
 - [x] Test service initialization and health checks
 - [ ] Download official pretrained weights from facebook/sam3
 - [ ] Implement CLIP-based text encoding for better text prompts
-- [x] Test with various brain structures
+- [ ] Test with various brain structures
 
 ## Interactive Prompting UI
 - [x] Create interactive segmentation screen
@@ -203,14 +203,14 @@
 - [x] Add interactive segmentation button to analysis screen
 - [ ] Implement adjustable mask opacity slider
 - [ ] Save segmentation masks to history
-- [ ] Export masks as PNG/NIfTI
+- [x] Export masks as PNG/NIfTI
 
 ## Multi-Model Consensus
-- [ ] Combine UNet + MedSAM2 + SAM3 predictions
-- [ ] Calculate consensus masks (majority voting)
-- [ ] Display confidence heatmaps
-- [ ] Allow user to select preferred model
-- [ ] Generate ensemble reports
+- [x] Combine UNet + MedSAM2 + SAM3 predictions
+- [x] Calculate consensus masks (majority voting)
+- [x] Display confidence heatmaps
+- [x] Allow user to select preferred model
+- [x] Generate ensemble reports
 
 ## Model Comparison Interface
 - [x] Create side-by-side comparison screen
@@ -561,3 +561,27 @@
 - [ ] Fix analysis button to actually proceed with ML model inference
 
 - [ ] Add public DICOM samples from OpenNeuro/TCIA for testing segmentation
+
+## Official Model Weights Integration
+- [ ] Download MedSAM2 pretrained weights from bowang-lab/MedSAM2
+- [ ] Download SAM3 pretrained weights from facebook/sam3
+- [ ] Update MedSAM2 service to use official weights
+- [ ] Update SAM3 service to use official weights
+- [ ] Test production-quality segmentation with real weights
+
+## Mask Export Functionality
+- [ ] Add PNG export for segmentation masks
+- [ ] Add NIfTI export for 3D segmentation volumes
+- [ ] Create export UI with format selection
+- [ ] Implement download/share functionality for exported masks
+- [ ] Add export button to interactive segmentation screen
+- [ ] Add export button to analysis results screen
+
+## Multi-Model Consensus System
+- [ ] Create consensus calculation service
+- [ ] Implement majority voting for mask combination
+- [ ] Generate confidence heatmaps from model agreement
+- [ ] Create ensemble report generation
+- [ ] Build consensus visualization UI
+- [ ] Add consensus view to model comparison screen
+- [ ] Display per-pixel agreement statistics

@@ -22,29 +22,36 @@ model = None
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def initialize_model():
-    """Initialize MedSAM2 model with pretrained weights"""
+    """Initialize MedSAM2 model with official pretrained weights"""
     global model
     if model is None:
-        print("Initializing MedSAM2...")
+        print("Initializing MedSAM2 with official weights...")
         try:
-            # Try to load pretrained SAM model
-            from sam_model import load_medical_sam
-            model = load_medical_sam()
-            model.eval()
-            model.to(device)
-            print(f"MedSAM2 loaded with pretrained weights on {device}")
+            # Try to load official MedSAM2 weights from wanglab/MedSAM2
+            from medsam2_official import load_medsam2_official
+            model = load_medsam2_official()
+            print(f"MedSAM2 loaded with official pretrained weights on {device}")
         except Exception as e:
-            print(f"Error loading pretrained model: {e}")
-            print("Falling back to custom architecture")
+            print(f"Error loading official MedSAM2: {e}")
+            print("Falling back to SAM model...")
             try:
-                model = create_medsam2_model()
+                from sam_model import load_medical_sam
+                model = load_medical_sam()
                 model.eval()
                 model.to(device)
-                print(f"MedSAM2 (custom) loaded on {device}")
+                print(f"MedSAM2 loaded with SAM weights on {device}")
             except Exception as e2:
-                print(f"Error loading custom model: {e2}")
-                print("Using mock implementation")
-                model = MockMedSAM2()
+                print(f"Error loading SAM model: {e2}")
+                print("Falling back to custom architecture")
+                try:
+                    model = create_medsam2_model()
+                    model.eval()
+                    model.to(device)
+                    print(f"MedSAM2 (custom) loaded on {device}")
+                except Exception as e3:
+                    print(f"Error loading custom model: {e3}")
+                    print("Using mock implementation")
+                    model = MockMedSAM2()
 
 def create_medsam2_model():
     """

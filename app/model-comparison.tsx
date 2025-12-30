@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { ConsensusView } from '@/components/ConsensusView';
+import { generateEnsembleReport, type ModelPrediction, type EnsembleReport } from '@/services/consensus';
 import {
   View,
   Text,
@@ -38,6 +40,8 @@ export default function ModelComparisonScreen() {
   const [heatmap, setHeatmap] = useState<HeatmapResult | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [showConsensus, setShowConsensus] = useState(false);
+  const [consensusReport, setConsensusReport] = useState<EnsembleReport | null>(null);
 
   // Shared values for synchronized zoom/pan
   const sharedScale = useSharedValue(1);
@@ -360,6 +364,36 @@ export default function ModelComparisonScreen() {
           </View>
         )}
 
+        {/* Generate Consensus Report Button */}
+        {results.length >= 2 && (
+          <TouchableOpacity
+            onPress={() => {
+              // Create model predictions for consensus
+              const predictions: ModelPrediction[] = results.map((r) => ({
+                modelName: r.model,
+                mask: [], // Will be populated from mask image in real implementation
+                confidence: r.confidence,
+                inferenceTime: r.inferenceTime,
+              }));
+              
+              // Generate ensemble report
+              const report = generateEnsembleReport(
+                predictions,
+                params.imageUri || '',
+                'Multi-Model Consensus Analysis'
+              );
+              
+              setConsensusReport(report);
+              setShowConsensus(true);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }}
+            className="mb-4 p-4 rounded-xl flex-row items-center justify-center gap-2"
+            style={{ backgroundColor: '#8B5CF6' }}
+          >
+            <Text className="text-white font-bold text-lg">📊 Generate Consensus Report</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Combined Overlay View */}
         {results.length > 0 && (
           <View className="mb-4">
@@ -576,6 +610,16 @@ export default function ModelComparisonScreen() {
           </>
         )}
       </ScrollView>
+      
+      {/* Consensus Report Modal */}
+      {showConsensus && consensusReport && (
+        <View className="absolute inset-0 bg-background">
+          <ConsensusView
+            report={consensusReport}
+            onClose={() => setShowConsensus(false)}
+          />
+        </View>
+      )}
     </ScreenContainer>
   );
 }

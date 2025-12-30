@@ -22,29 +22,36 @@ model = None
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def initialize_model():
-    """Initialize SAM3 model with pretrained weights"""
+    """Initialize SAM3 model with official SAM 2.1 pretrained weights"""
     global model
     if model is None:
-        print("Initializing SAM3...")
+        print("Initializing SAM3 with official SAM 2.1 weights...")
         try:
-            # Try to load pretrained SAM model
-            from sam_model import load_medical_sam
-            model = load_medical_sam()
-            model.eval()
-            model.to(device)
-            print(f"SAM3 loaded with pretrained weights on {device}")
+            # Try to load official SAM 2.1 weights from facebook/sam2.1-hiera-large
+            from sam2_official import load_sam2_official
+            model = load_sam2_official()
+            print(f"SAM3 loaded with official SAM 2.1 pretrained weights on {device}")
         except Exception as e:
-            print(f"Error loading pretrained model: {e}")
-            print("Falling back to custom architecture")
+            print(f"Error loading official SAM 2.1: {e}")
+            print("Falling back to SAM model...")
             try:
-                model = create_sam3_model()
+                from sam_model import load_medical_sam
+                model = load_medical_sam()
                 model.eval()
                 model.to(device)
-                print(f"SAM3 (custom) loaded on {device}")
+                print(f"SAM3 loaded with SAM weights on {device}")
             except Exception as e2:
-                print(f"Error loading custom model: {e2}")
-                print("Using mock implementation")
-                model = MockSAM3()
+                print(f"Error loading SAM model: {e2}")
+                print("Falling back to custom architecture")
+                try:
+                    model = create_sam3_model()
+                    model.eval()
+                    model.to(device)
+                    print(f"SAM3 (custom) loaded on {device}")
+                except Exception as e3:
+                    print(f"Error loading custom model: {e3}")
+                    print("Using mock implementation")
+                    model = MockSAM3()
 
 def create_sam3_model():
     """
