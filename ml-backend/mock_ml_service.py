@@ -82,8 +82,80 @@ def generate_mock_mask(width=256, height=256):
     return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
 
-def generate_synthseg_overlay(width=256, height=256):
-    """Generate a colored brain structure overlay as base64 PNG"""
+def generate_synthseg_overlay(input_image_base64=None, width=256, height=256):
+    """Generate a colored brain structure overlay on top of the actual MRI image"""
+    
+    # If we have an input image, use it as the base
+    if input_image_base64:
+        try:
+            # Handle data URI format
+            if ',' in input_image_base64:
+                input_image_base64 = input_image_base64.split(',')[1]
+            
+            img_data = base64.b64decode(input_image_base64)
+            base_img = Image.open(io.BytesIO(img_data)).convert('RGBA')
+            width, height = base_img.size
+            
+            # Create overlay on top of the actual image
+            overlay = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+            overlay_pixels = overlay.load()
+            
+            # Scale regions based on image size
+            scale_x = width / 256
+            scale_y = height / 256
+            
+            # Define anatomical regions relative to brain center
+            cx_center = width // 2
+            cy_center = height // 2
+            
+            # Create anatomical-looking regions with different colors
+            regions = [
+                # Ventricles (blue, center)
+                {"cx": cx_center, "cy": int(cy_center * 0.78), "rx": int(15 * scale_x), "ry": int(25 * scale_y), "color": (65, 105, 225, 140)},
+                # Thalamus (green, bilateral)
+                {"cx": int(cx_center - 23 * scale_x), "cy": int(cy_center * 0.86), "rx": int(18 * scale_x), "ry": int(15 * scale_y), "color": (0, 255, 0, 130)},
+                {"cx": int(cx_center + 23 * scale_x), "cy": int(cy_center * 0.86), "rx": int(18 * scale_x), "ry": int(15 * scale_y), "color": (0, 255, 0, 130)},
+                # Hippocampus (yellow, bilateral)
+                {"cx": int(cx_center - 38 * scale_x), "cy": int(cy_center * 1.1), "rx": int(20 * scale_x), "ry": int(10 * scale_y), "color": (255, 255, 0, 140)},
+                {"cx": int(cx_center + 38 * scale_x), "cy": int(cy_center * 1.1), "rx": int(20 * scale_x), "ry": int(10 * scale_y), "color": (255, 255, 0, 140)},
+                # Caudate (lime green, bilateral)
+                {"cx": int(cx_center - 28 * scale_x), "cy": int(cy_center * 0.66), "rx": int(12 * scale_x), "ry": int(18 * scale_y), "color": (124, 252, 0, 120)},
+                {"cx": int(cx_center + 28 * scale_x), "cy": int(cy_center * 0.66), "rx": int(12 * scale_x), "ry": int(18 * scale_y), "color": (124, 252, 0, 120)},
+                # Putamen (pink, bilateral)
+                {"cx": int(cx_center - 43 * scale_x), "cy": int(cy_center * 0.82), "rx": int(15 * scale_x), "ry": int(12 * scale_y), "color": (255, 105, 180, 130)},
+                {"cx": int(cx_center + 43 * scale_x), "cy": int(cy_center * 0.82), "rx": int(15 * scale_x), "ry": int(12 * scale_y), "color": (255, 105, 180, 130)},
+                # Cerebellum (dark red, bottom)
+                {"cx": cx_center, "cy": int(cy_center * 1.56), "rx": int(50 * scale_x), "ry": int(30 * scale_y), "color": (139, 0, 0, 110)},
+                # Brain stem (peach, bottom center)
+                {"cx": cx_center, "cy": int(cy_center * 1.37), "rx": int(12 * scale_x), "ry": int(25 * scale_y), "color": (255, 218, 185, 120)},
+                # Amygdala (teal, bilateral)
+                {"cx": int(cx_center - 33 * scale_x), "cy": int(cy_center * 1.02), "rx": int(10 * scale_x), "ry": int(8 * scale_y), "color": (102, 205, 170, 140)},
+                {"cx": int(cx_center + 33 * scale_x), "cy": int(cy_center * 1.02), "rx": int(10 * scale_x), "ry": int(8 * scale_y), "color": (102, 205, 170, 140)},
+            ]
+            
+            for region in regions:
+                cx, cy = region["cx"], region["cy"]
+                rx, ry = max(1, region["rx"]), max(1, region["ry"])
+                color = region["color"]
+                
+                for x in range(max(0, cx - rx - 2), min(width, cx + rx + 2)):
+                    for y in range(max(0, cy - ry - 2), min(height, cy + ry + 2)):
+                        # Ellipse equation
+                        if ((x - cx) ** 2 / (rx ** 2) + (y - cy) ** 2 / (ry ** 2)) <= 1:
+                            overlay_pixels[x, y] = color
+            
+            # Composite overlay on base image
+            result = Image.alpha_composite(base_img, overlay)
+            
+            buffer = io.BytesIO()
+            result.save(buffer, format='PNG')
+            return base64.b64encode(buffer.getvalue()).decode('utf-8')
+            
+        except Exception as e:
+            print(f"Error processing input image: {e}")
+            # Fall through to generate standalone overlay
+    
+    # Generate standalone overlay if no input image
     img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
     pixels = img.load()
     
@@ -362,7 +434,7 @@ def synthseg_segment():
         },
         "impression": impression,
         "inference_time": "15s",
-        "segmentation_overlay": generate_synthseg_overlay(),
+        "segmentation_overlay": generate_synthseg_overlay(data.get('image')),
         "quality_score": random.uniform(0.85, 0.98),
         "findings": [
             {

@@ -734,3 +734,9 @@
 - [x] Add sample neuroUSG image to public/samples directory
 - [x] Test end-to-end pipeline through Node.js proxy (working)
 - [x] Verify critical finding detection (18.5% tumor = CRITICAL)
+
+
+## SynthSeg Visualization Fix (Dec 30, 2024)
+- [x] Fix SynthSeg to display actual MRI overlay instead of placeholder illustration
+- [x] Replace generic brain blob diagram with real segmentation on MRI
+- [x] Show color-coded regions overlaid on the actual uploaded image

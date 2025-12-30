@@ -562,17 +562,38 @@ export default function AnalysisScreen() {
               <View className="px-4">
                 <View className="bg-surface rounded-2xl p-4 border border-border">
                   <Text className="text-lg font-bold text-foreground mb-3">🧠 Brain Structure Segmentation</Text>
-                  <View className="relative rounded-xl overflow-hidden" style={{ height: 280 }}>
-                    <Image 
-                      source={{ uri: params.imageUri }} 
-                      style={{ width: '100%', height: '100%', position: 'absolute' }}
-                      resizeMode="contain"
-                    />
+                  <View className="rounded-xl overflow-hidden" style={{ height: 320 }}>
                     <Image 
                       source={{ uri: synthSegOverlay }} 
-                      style={{ width: '100%', height: '100%', position: 'absolute', opacity: 0.6 }}
+                      style={{ width: '100%', height: '100%' }}
                       resizeMode="contain"
                     />
+                  </View>
+                  <View className="mt-3 flex-row flex-wrap gap-2 justify-center">
+                    <View className="flex-row items-center gap-1">
+                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#4169E1' }} />
+                      <Text className="text-xs text-muted">Ventricles</Text>
+                    </View>
+                    <View className="flex-row items-center gap-1">
+                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#00FF00' }} />
+                      <Text className="text-xs text-muted">Thalamus</Text>
+                    </View>
+                    <View className="flex-row items-center gap-1">
+                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#FFFF00' }} />
+                      <Text className="text-xs text-muted">Hippocampus</Text>
+                    </View>
+                    <View className="flex-row items-center gap-1">
+                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#FF69B4' }} />
+                      <Text className="text-xs text-muted">Putamen</Text>
+                    </View>
+                    <View className="flex-row items-center gap-1">
+                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#8B0000' }} />
+                      <Text className="text-xs text-muted">Cerebellum</Text>
+                    </View>
+                    <View className="flex-row items-center gap-1">
+                      <View className="w-3 h-3 rounded-full" style={{ backgroundColor: '#66CDAA' }} />
+                      <Text className="text-xs text-muted">Amygdala</Text>
+                    </View>
                   </View>
                   <Text className="text-xs text-muted text-center mt-2">Color-coded brain structure overlay (32 regions)</Text>
                 </View>
