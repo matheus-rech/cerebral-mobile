@@ -585,3 +585,18 @@
 - [ ] Build consensus visualization UI
 - [ ] Add consensus view to model comparison screen
 - [ ] Display per-pixel agreement statistics
+
+
+## NeuroSAM3 HuggingFace Spaces Integration
+- [x] Integrate NeuroSAM3 API as cloud backend option
+- [ ] Add text prompt segmentation (from NeuroSAM3)
+- [x] Add CT windowing strategies (Brain Grey Matter, Bone, Lung, etc.)
+- [ ] Add ground truth comparison feature
+- [ ] Add automatic mask generator (AMG) without prompts
+- [ ] Add edge-based segmentation
+- [ ] Add CLAHE preprocessing option
+- [ ] Add multi-mask candidates with confidence scores
+- [ ] Add batch processing with ZIP export
+- [ ] Add slice auto-play feature
+- [ ] Add annotation save/load functionality
+- [x] Add colormap selection for overlays

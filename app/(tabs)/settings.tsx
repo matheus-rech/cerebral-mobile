@@ -98,6 +98,28 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             </Pressable>
+
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/ml-settings');
+              }}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            >
+              <View className="bg-primary/10 rounded-2xl p-4 border border-primary">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1">
+                    <Text className="text-base font-semibold text-foreground mb-1">
+                      ⚙️ ML Backend & Processing
+                    </Text>
+                    <Text className="text-sm text-muted">
+                      Switch between local and NeuroSAM3 cloud, configure CT windowing, colormaps
+                    </Text>
+                  </View>
+                  <Text className="text-primary font-semibold">→</Text>
+                </View>
+              </View>
+            </Pressable>
           </View>
 
           {/* Analysis Settings */}
