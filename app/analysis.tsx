@@ -15,6 +15,28 @@ import type { MRIAnalysisReport } from "@/types/mri";
 // ML Model definitions
 const ML_MODELS = [
   {
+    id: 'neurousg',
+    name: 'NeuroUSG',
+    description: 'Brain ultrasound segmentation',
+    color: '#EC4899', // pink
+    speed: '~0.5s',
+    bestFor: 'Tumor, ventricles, parenchyma in ultrasound',
+    port: 5010,
+    endpoint: '/segment/usg',
+    modality: 'USG',
+  },
+  {
+    id: 'neuromri',
+    name: 'NeuroMRI',
+    description: 'MRI T1-Gd/T2/FLAIR segmentation',
+    color: '#06B6D4', // cyan
+    speed: '~0.5s',
+    bestFor: 'Enhancement, necrosis, edema detection',
+    port: 5010,
+    endpoint: '/segment/mri',
+    modality: 'T1_GD',
+  },
+  {
     id: 'unet',
     name: 'UNet',
     description: 'Lesion detection & classification',
@@ -110,6 +132,105 @@ export default function AnalysisScreen() {
         return;
       }
 
+      // Handle neuroimaging models (NeuroUSG and NeuroMRI)
+      if (selectedModel.id === 'neurousg' || selectedModel.id === 'neuromri') {
+        const apiBaseUrl = getApiBaseUrl();
+        const endpoint = selectedModel.id === 'neurousg' 
+          ? '/api/ml/neuroimaging/segment-usg' 
+          : '/api/ml/neuroimaging/segment-mri';
+        
+        const mlResponse = await fetch(`${apiBaseUrl}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            imageUri: params.imageUri,
+            modality: selectedModel.modality || 'USG',
+          }),
+        });
+
+        if (!mlResponse.ok) {
+          throw new Error(`Neuroimaging service error: ${mlResponse.status}`);
+        }
+
+        const mlResult = await mlResponse.json();
+
+        // Store segmentation overlay
+        if (mlResult.overlay) {
+          setSynthSegOverlay(`data:image/png;base64,${mlResult.overlay}`);
+        }
+        
+        // Store structures from findings
+        if (mlResult.findings) {
+          const structures = mlResult.findings.map((f: any) => ({
+            name: f.structure,
+            volume: f.area_pixels,
+            percentile: f.area_percentage,
+            status: f.severity === 'routine' ? 'normal' : f.severity,
+            color: f.structure === 'tumor' ? '#FF5050' : 
+                   f.structure === 'ventricles' ? '#0096FF' :
+                   f.structure === 'parenchyma' ? '#64C864' :
+                   f.structure === 'edema' ? '#6496FF' :
+                   f.structure === 'enhancement' ? '#FFC800' :
+                   f.structure === 'necrotic' ? '#FF3232' : '#808080',
+          }));
+          setSynthSegStructures(structures);
+        }
+
+        // Create analysis report from neuroimaging result
+        const analysisReport: MRIAnalysisReport = {
+          id: `analysis-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          imageUri: params.imageUri,
+          modality: mlResult.modality || 'USG',
+          view: 'Axial',
+          qualityScore: 0.95,
+          anatomicalFindings: mlResult.findings?.map((f: any) => ({
+            structure: f.structure,
+            status: f.severity === 'routine' ? 'normal' : f.severity,
+            description: f.description,
+            location: f.recommendation,
+          })) || [],
+          differential: [],
+          impression: mlResult.critical_count > 0 
+            ? `CRITICAL: ${mlResult.critical_count} urgent finding(s) detected` 
+            : 'No critical findings detected',
+          recommendations: mlResult.findings
+            ?.filter((f: any) => f.severity !== 'routine')
+            ?.map((f: any) => f.recommendation) || [],
+          severity: mlResult.critical_count > 0 ? 'CRITICAL' : 'normal',
+          emergencyFindings: mlResult.findings
+            ?.filter((f: any) => f.severity === 'critical' || f.severity === 'urgent')
+            ?.map((f: any) => f.description) || [],
+          modelUsed: selectedModel.name,
+          inferenceTime: mlResult.metadata?.timestamp || selectedModel.speed,
+        };
+
+        setReport(analysisReport);
+        Haptics.notificationAsync(
+          mlResult.critical_count > 0 
+            ? Haptics.NotificationFeedbackType.Warning 
+            : Haptics.NotificationFeedbackType.Success
+        );
+        setAnalyzing(false);
+        return;
+      }
+
+      // Helper function for API base URL
+      function getApiBaseUrl() {
+        if (typeof window !== 'undefined') {
+          const hostname = window.location.hostname;
+          if (hostname.includes('8081-')) {
+            const apiHostname = hostname.replace('8081-', '3000-');
+            return `${window.location.protocol}//${apiHostname}`;
+          }
+          if (window.location.port === '8081') {
+            return `${window.location.protocol}//${window.location.hostname}:3000`;
+          }
+          return window.location.origin;
+        }
+        return 'http://localhost:3000';
+      }
+
       // Call the ML backend through server proxy
       // Use relative URL so it works both locally and via proxy
       const apiUrl = `/api/ml/${selectedModel.id}${selectedModel.endpoint}`;
@@ -118,8 +239,8 @@ export default function AnalysisScreen() {
       // NIfTI files need to be processed server-side
       let base64: string;
       
-      // Get API base URL for local sample images
-      const getApiBaseUrl = () => {
+      // Get API base URL for local sample images (legacy models)
+      const getApiBaseUrlLegacy = () => {
         if (typeof window !== 'undefined') {
           const hostname = window.location.hostname;
           if (hostname.includes('8081-')) {

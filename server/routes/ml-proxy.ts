@@ -15,6 +15,7 @@ const UNET_URL = process.env.UNET_URL || ML_BACKEND_URL;
 const LESION_3D_URL = process.env.LESION_3D_URL || ML_BACKEND_URL;
 const MEDSAM2_URL = process.env.MEDSAM2_URL || ML_BACKEND_URL;
 const SAM3_URL = process.env.SAM3_URL || ML_BACKEND_URL;
+const NEUROIMAGING_URL = process.env.NEUROIMAGING_URL || 'http://localhost:5010';
 
 /**
  * Helper function to convert image URI to base64
@@ -246,6 +247,145 @@ router.post('/ml/sam3/segment-text', async (req, res) => {
 });
 
 /**
+ * POST /api/ml/neuroimaging/segment-usg
+ * Brain ultrasound (neuroUSG) segmentation with critical finding detection
+ */
+router.post('/ml/neuroimaging/segment-usg', async (req, res) => {
+  try {
+    const { imageUri, structures } = req.body;
+    if (!imageUri) {
+      return res.status(400).json({ error: 'Image URI is required' });
+    }
+
+    const imageData = await imageUriToBase64(imageUri);
+
+    const response = await fetch(`${NEUROIMAGING_URL}/segment/usg`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        image: imageData, 
+        structures: structures || ['tumor', 'csf', 'parenchyma'] 
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Neuroimaging error: ${await response.text()}`);
+    }
+
+    const result = await response.json();
+    res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('Neuroimaging USG proxy error:', error);
+    res.status(500).json({
+      error: 'NeuroUSG segmentation failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * POST /api/ml/neuroimaging/segment-mri
+ * MRI segmentation (T1-Gd, T2, FLAIR) with critical finding detection
+ */
+router.post('/ml/neuroimaging/segment-mri', async (req, res) => {
+  try {
+    const { imageUri, modality, structures } = req.body;
+    if (!imageUri) {
+      return res.status(400).json({ error: 'Image URI is required' });
+    }
+
+    const imageData = await imageUriToBase64(imageUri);
+
+    const response = await fetch(`${NEUROIMAGING_URL}/segment/mri`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        image: imageData, 
+        modality: modality || 'T1_GD',
+        structures 
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Neuroimaging error: ${await response.text()}`);
+    }
+
+    const result = await response.json();
+    res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('Neuroimaging MRI proxy error:', error);
+    res.status(500).json({
+      error: 'MRI segmentation failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * POST /api/ml/neuroimaging/segment-auto
+ * Auto-detect modality and segment with critical finding detection
+ */
+router.post('/ml/neuroimaging/segment-auto', async (req, res) => {
+  try {
+    const { imageUri, hint } = req.body;
+    if (!imageUri) {
+      return res.status(400).json({ error: 'Image URI is required' });
+    }
+
+    const imageData = await imageUriToBase64(imageUri);
+
+    const response = await fetch(`${NEUROIMAGING_URL}/segment/auto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: imageData, hint: hint || 'USG' }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Neuroimaging error: ${await response.text()}`);
+    }
+
+    const result = await response.json();
+    res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('Neuroimaging auto proxy error:', error);
+    res.status(500).json({
+      error: 'Auto segmentation failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * GET /api/ml/neuroimaging/colors
+ * Get color palette for segmentation visualization
+ */
+router.get('/ml/neuroimaging/colors', async (req, res) => {
+  try {
+    const response = await fetch(`${NEUROIMAGING_URL}/colors`);
+    const result = await response.json();
+    res.json(result);
+  } catch (error) {
+    console.error('Neuroimaging colors error:', error);
+    res.status(500).json({ error: 'Failed to get colors' });
+  }
+});
+
+/**
+ * GET /api/ml/neuroimaging/thresholds
+ * Get default thresholds for each modality
+ */
+router.get('/ml/neuroimaging/thresholds', async (req, res) => {
+  try {
+    const response = await fetch(`${NEUROIMAGING_URL}/thresholds`);
+    const result = await response.json();
+    res.json(result);
+  } catch (error) {
+    console.error('Neuroimaging thresholds error:', error);
+    res.status(500).json({ error: 'Failed to get thresholds' });
+  }
+});
+
+/**
  * POST /api/ml/lesion-3d/track
  * 3D lesion tracking across slices
  */
@@ -289,6 +429,7 @@ router.get('/ml/health', async (req, res) => {
     { name: 'Lesion3D', url: `${LESION_3D_URL}/health` },
     { name: 'MedSAM2', url: `${MEDSAM2_URL}/health` },
     { name: 'SAM3', url: `${SAM3_URL}/health` },
+    { name: 'Neuroimaging', url: `${NEUROIMAGING_URL}/health` },
   ];
 
   const results = await Promise.allSettled(

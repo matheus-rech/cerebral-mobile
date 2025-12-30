@@ -706,3 +706,31 @@
 - [x] Fix Gradle build error: createBundleReleaseJsAndAssets task failure
 - [x] Investigate node process exit code 1 during bundle creation (caused by @gradio/client using fs/promises)
 - [x] Test Android build after fix (export successful)
+
+
+## Neuroimaging Segmentation Skill Integration (Dec 30, 2025)
+- [ ] Research best practices from BIDS apps, RadiologyAI, brain tumor segmentation repos
+- [ ] Test segmentation skill with sample neuroUSG image
+- [ ] Create production Python ML service with segmentation module
+- [ ] Add neuroUSG segmentation endpoint (tumor, ventricles, parenchyma)
+- [ ] Add MRI T1-Gd segmentation endpoint (enhancement, necrotic, edema)
+- [ ] Add MRI T2/FLAIR segmentation endpoints
+- [ ] Integrate with Node.js proxy routes
+- [ ] Update mobile app frontend to use new segmentation service
+- [ ] Add real-time overlay visualization
+- [ ] Test end-to-end pipeline with real images
+
+
+## Neuroimaging Segmentation Integration (Dec 30, 2024)
+- [x] Research best practices from GitHub repositories (BIDS apps, RadiologyAI, brain-tumor-segmentation)
+- [x] Test segmentation skill with sample neuroUSG image
+- [x] Create Python neuroimaging_service.py with Flask API (port 5010)
+- [x] Copy segment_neuroimaging.py module to ml-backend
+- [x] Implement critical finding detection with severity levels (critical/urgent/significant/routine)
+- [x] Add 32+ brain structure definitions with FreeSurfer-compatible colors
+- [x] Create Node.js proxy routes for neuroimaging endpoints
+- [x] Add NeuroUSG and NeuroMRI models to analysis screen ML_MODELS
+- [x] Create neuroimaging.ts service for frontend with type definitions
+- [x] Add sample neuroUSG image to public/samples directory
+- [x] Test end-to-end pipeline through Node.js proxy (working)
+- [x] Verify critical finding detection (18.5% tumor = CRITICAL)
