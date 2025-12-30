@@ -8,7 +8,7 @@ import { View, Text, ScrollView, TouchableOpacity, Switch, Alert, Platform } fro
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/screen-container';
 import { useMLSettings, WINDOW_TYPES, COLORMAPS, type MLBackend, type Modality, type WindowType, type Colormap } from '@/contexts/ml-settings';
-import { checkAvailability, getMcpServerUrl } from '@/services/neurosam3';
+import { checkServiceHealth, getMcpServerUrl } from '@/services/neurosam3';
 import * as Haptics from 'expo-haptics';
 import Slider from '@react-native-community/slider';
 
@@ -25,7 +25,7 @@ export default function MLSettingsScreen() {
   const checkNeuroSAM3 = async () => {
     setCheckingAvailability(true);
     try {
-      const available = await checkAvailability();
+      const available = await checkServiceHealth();
       setNeuroSAM3Available(available);
     } catch {
       setNeuroSAM3Available(false);

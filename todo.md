@@ -700,3 +700,9 @@
 - [x] Add color-coded status indicators (normal/low/high)
 - [x] Update AnatomicalFinding type to support SynthSeg fields
 - [x] Add normalizeStatus helper for various status strings
+
+
+## Android Build Fix (Dec 30, 2025)
+- [x] Fix Gradle build error: createBundleReleaseJsAndAssets task failure
+- [x] Investigate node process exit code 1 during bundle creation (caused by @gradio/client using fs/promises)
+- [x] Test Android build after fix (export successful)

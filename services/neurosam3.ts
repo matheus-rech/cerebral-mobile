@@ -1,13 +1,16 @@
 /**
  * NeuroSAM3 HuggingFace Spaces Client
  * Integrates with mmrech/NeuroSAM3 for cloud-based medical image segmentation
+ * 
+ * NOTE: Uses fetch API instead of @gradio/client to avoid Node.js-specific dependencies
+ * that break React Native builds (fs/promises, etc.)
  */
 
-import { Client } from '@gradio/client';
 import { Platform } from 'react-native';
 
 // NeuroSAM3 HuggingFace Space URL
 const NEUROSAM3_SPACE = 'mmrech/NeuroSAM3';
+const NEUROSAM3_API_URL = 'https://mmrech-neurosam3.hf.space/api/predict';
 const NEUROSAM3_MCP_URL = 'https://mmrech-neurosam3.hf.space/gradio_api/mcp/';
 
 // Modality options
@@ -66,29 +69,52 @@ export interface GroundTruthResult {
   status: string;
 }
 
-let clientInstance: Client | null = null;
-
 /**
- * Get or create a Gradio client connection
+ * Convert a local file URI to base64 for upload
  */
-async function getClient(): Promise<Client> {
-  if (!clientInstance) {
-    clientInstance = await Client.connect(NEUROSAM3_SPACE);
+async function uriToBase64(uri: string): Promise<string> {
+  try {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        // Remove data URL prefix if present
+        const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+        resolve(base64Data);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error converting URI to base64:', error);
+    throw error;
   }
-  return clientInstance;
 }
 
 /**
- * Convert a local file URI to a Blob for upload
+ * Make a prediction request to the Gradio API
  */
-async function uriToBlob(uri: string): Promise<Blob> {
-  if (Platform.OS === 'web') {
-    const response = await fetch(uri);
-    return response.blob();
-  } else {
-    // For React Native, we need to handle file:// URIs
-    const response = await fetch(uri);
-    return response.blob();
+async function predict(endpoint: string, data: Record<string, unknown>): Promise<unknown[]> {
+  try {
+    const response = await fetch(`https://mmrech-neurosam3.hf.space/api/predict/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ data: Object.values(data) }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.data || [];
+  } catch (error) {
+    console.error('Gradio API error:', error);
+    throw error;
   }
 }
 
@@ -96,13 +122,11 @@ async function uriToBlob(uri: string): Promise<Blob> {
  * Load the demo DICOM file from NeuroSAM3
  */
 export async function loadDemoFile(): Promise<{ fileUrl: string; status: string }> {
-  const client = await getClient();
-  const result = await client.predict('/load_demo_file', {});
-  const data = result.data as unknown[];
+  const result = await predict('load_demo_file', {});
   
   return {
-    fileUrl: data[0] as string,
-    status: data[1] as string,
+    fileUrl: result[0] as string,
+    status: result[1] as string,
   };
 }
 
@@ -116,20 +140,18 @@ export async function processWithTextPrompt(
   windowType: WindowType = 'Brain (Grey Matter)'
 ): Promise<SegmentationResult> {
   try {
-    const client = await getClient();
-    const imageBlob = await uriToBlob(imageUri);
+    const imageBase64 = await uriToBase64(imageUri);
     
-    const result = await client.predict('/process_with_status', {
-      image_file: imageBlob,
+    const result = await predict('process_with_status', {
+      image_file: `data:image/png;base64,${imageBase64}`,
       prompt_text: promptText,
       modality: modality,
       window_type: windowType,
     });
-    const data = result.data as unknown[];
     
     return {
-      imageUrl: data[0] as string,
-      status: data[1] as string,
+      imageUrl: result[0] as string,
+      status: result[1] as string,
       success: true,
     };
   } catch (error) {
@@ -155,11 +177,10 @@ export async function processWithPointPrompt(
   transparency: number = 0.5
 ): Promise<SegmentationResult> {
   try {
-    const client = await getClient();
-    const imageBlob = await uriToBlob(imageUri);
+    const imageBase64 = await uriToBase64(imageUri);
     
-    const result = await client.predict('/process_with_point_prompt', {
-      image_file: imageBlob,
+    const result = await predict('process_with_point_prompt', {
+      image_file: `data:image/png;base64,${imageBase64}`,
       point_x: Math.round(pointX),
       point_y: Math.round(pointY),
       modality: modality,
@@ -167,11 +188,10 @@ export async function processWithPointPrompt(
       colormap: colormap,
       transparency: transparency,
     });
-    const data = result.data as unknown[];
     
     return {
-      imageUrl: data[0] as string,
-      status: data[1] as string,
+      imageUrl: result[0] as string,
+      status: result[1] as string,
       success: true,
     };
   } catch (error) {
@@ -199,11 +219,10 @@ export async function processWithBoxPrompt(
   transparency: number = 0.5
 ): Promise<SegmentationResult> {
   try {
-    const client = await getClient();
-    const imageBlob = await uriToBlob(imageUri);
+    const imageBase64 = await uriToBase64(imageUri);
     
-    const result = await client.predict('/process_with_box_prompt', {
-      image_file: imageBlob,
+    const result = await predict('process_with_box_prompt', {
+      image_file: `data:image/png;base64,${imageBase64}`,
       x1: Math.round(x1),
       y1: Math.round(y1),
       x2: Math.round(x2),
@@ -213,11 +232,10 @@ export async function processWithBoxPrompt(
       colormap: colormap,
       transparency: transparency,
     });
-    const data = result.data as unknown[];
     
     return {
-      imageUrl: data[0] as string,
-      status: data[1] as string,
+      imageUrl: result[0] as string,
+      status: result[1] as string,
       success: true,
     };
   } catch (error) {
@@ -242,22 +260,20 @@ export async function automaticMaskGenerator(
   colormap: Colormap = 'viridis'
 ): Promise<SegmentationResult> {
   try {
-    const client = await getClient();
-    const imageBlob = await uriToBlob(imageUri);
+    const imageBase64 = await uriToBase64(imageUri);
     
-    const result = await client.predict('/automatic_mask_generator', {
-      image_file: imageBlob,
+    const result = await predict('automatic_mask_generator', {
+      image_file: `data:image/png;base64,${imageBase64}`,
       modality: modality,
       window_type: windowType,
       points_per_side: pointsPerSide,
       min_mask_area: minMaskArea,
       colormap: colormap,
     });
-    const data = result.data as unknown[];
     
     return {
-      imageUrl: data[0] as string,
-      status: data[1] as string,
+      imageUrl: result[0] as string,
+      status: result[1] as string,
       success: true,
     };
   } catch (error) {
@@ -283,11 +299,10 @@ export async function edgeBasedSegmentation(
   transparency: number = 0.5
 ): Promise<SegmentationResult> {
   try {
-    const client = await getClient();
-    const imageBlob = await uriToBlob(imageUri);
+    const imageBase64 = await uriToBase64(imageUri);
     
-    const result = await client.predict('/edge_based_segmentation', {
-      image_file: imageBlob,
+    const result = await predict('edge_based_segmentation', {
+      image_file: `data:image/png;base64,${imageBase64}`,
       modality: modality,
       window_type: windowType,
       edge_threshold: edgeThreshold,
@@ -295,11 +310,10 @@ export async function edgeBasedSegmentation(
       colormap: colormap,
       transparency: transparency,
     });
-    const data = result.data as unknown[];
     
     return {
-      imageUrl: data[0] as string,
-      status: data[1] as string,
+      imageUrl: result[0] as string,
+      status: result[1] as string,
       success: true,
     };
   } catch (error) {
@@ -327,11 +341,10 @@ export async function processWithAdvancedTransforms(
   transparency: number = 0.5
 ): Promise<SegmentationResult> {
   try {
-    const client = await getClient();
-    const imageBlob = await uriToBlob(imageUri);
+    const imageBase64 = await uriToBase64(imageUri);
     
-    const result = await client.predict('/process_with_advanced_transforms', {
-      image_file: imageBlob,
+    const result = await predict('process_with_advanced_transforms', {
+      image_file: `data:image/png;base64,${imageBase64}`,
       prompt_text: promptText,
       modality: modality,
       window_type: windowType,
@@ -341,11 +354,10 @@ export async function processWithAdvancedTransforms(
       colormap: colormap,
       transparency: transparency,
     });
-    const data = result.data as unknown[];
     
     return {
-      imageUrl: data[0] as string,
-      status: data[1] as string,
+      imageUrl: result[0] as string,
+      status: result[1] as string,
       success: true,
     };
   } catch (error) {
@@ -369,29 +381,22 @@ export async function processWithGroundTruth(
   windowType: WindowType = 'Brain (Grey Matter)'
 ): Promise<GroundTruthResult> {
   try {
-    const client = await getClient();
-    const imageBlob = await uriToBlob(imageUri);
-    const gtBlob = await uriToBlob(groundTruthUri);
+    const imageBase64 = await uriToBase64(imageUri);
+    const gtBase64 = await uriToBase64(groundTruthUri);
     
-    const result = await client.predict('/process_with_ground_truth', {
-      image_file: imageBlob,
-      gt_mask_file: gtBlob,
+    const result = await predict('process_with_ground_truth', {
+      image_file: `data:image/png;base64,${imageBase64}`,
+      gt_mask_file: `data:image/png;base64,${gtBase64}`,
       prompt_text: promptText,
       modality: modality,
       window_type: windowType,
     });
-    const data = result.data as unknown[];
-    
-    // Parse metrics from status string
-    const status = data[1] as string;
-    const diceMatch = status.match(/Dice:\s*([\d.]+)/);
-    const iouMatch = status.match(/IoU:\s*([\d.]+)/);
     
     return {
-      comparisonImageUrl: data[0] as string,
-      diceScore: diceMatch ? parseFloat(diceMatch[1]) : 0,
-      iouScore: iouMatch ? parseFloat(iouMatch[1]) : 0,
-      status: status,
+      comparisonImageUrl: result[0] as string,
+      diceScore: result[1] as number,
+      iouScore: result[2] as number,
+      status: result[3] as string,
     };
   } catch (error) {
     console.error('NeuroSAM3 ground truth error:', error);
@@ -405,9 +410,9 @@ export async function processWithGroundTruth(
 }
 
 /**
- * Generate multiple mask candidates
+ * Generate multiple masks with different confidence levels
  */
-export async function processMultiMask(
+export async function generateMultipleMasks(
   imageUri: string,
   promptText: string = 'brain',
   modality: Modality = 'MRI',
@@ -415,34 +420,30 @@ export async function processMultiMask(
   numMasks: number = 3
 ): Promise<MultiMaskResult> {
   try {
-    const client = await getClient();
-    const imageBlob = await uriToBlob(imageUri);
+    const imageBase64 = await uriToBase64(imageUri);
     
-    const result = await client.predict('/process_multi_mask', {
-      image_file: imageBlob,
+    const result = await predict('generate_multiple_masks', {
+      image_file: `data:image/png;base64,${imageBase64}`,
       prompt_text: promptText,
       modality: modality,
       window_type: windowType,
       num_masks: numMasks,
     });
-    const data = result.data as unknown[];
     
-    // Parse gallery results
-    const galleryData = data[0] as Array<{ image: string; caption: string }>;
-    const masks = galleryData.map((item, index) => {
-      const confidenceMatch = item.caption?.match(/(\d+(?:\.\d+)?)/);
-      return {
-        imageUrl: item.image,
-        confidence: confidenceMatch ? parseFloat(confidenceMatch[1]) / 100 : 0.5 + (0.1 * (numMasks - index)),
-      };
-    });
+    const masks = [];
+    for (let i = 0; i < numMasks; i++) {
+      masks.push({
+        imageUrl: result[i * 2] as string,
+        confidence: result[i * 2 + 1] as number,
+      });
+    }
     
     return {
       masks,
-      status: data[1] as string,
+      status: result[numMasks * 2] as string,
     };
   } catch (error) {
-    console.error('NeuroSAM3 multi-mask error:', error);
+    console.error('NeuroSAM3 multiple masks error:', error);
     return {
       masks: [],
       status: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -451,56 +452,54 @@ export async function processMultiMask(
 }
 
 /**
- * Export mask to NIfTI format
+ * Slice viewer for 3D volumes
  */
-export async function exportMaskToNifti(): Promise<{ fileUrl: string; status: string }> {
+export async function viewSlice(
+  volumeUri: string,
+  sliceIndex: number,
+  axis: 'axial' | 'coronal' | 'sagittal' = 'axial',
+  modality: Modality = 'MRI',
+  windowType: WindowType = 'Brain (Grey Matter)'
+): Promise<SliceViewerResult> {
   try {
-    const client = await getClient();
-    const result = await client.predict('/export_last_mask_nifti', {});
-    const data = result.data as unknown[];
+    const volumeBase64 = await uriToBase64(volumeUri);
+    
+    const result = await predict('view_slice', {
+      volume_file: `data:application/octet-stream;base64,${volumeBase64}`,
+      slice_index: sliceIndex,
+      axis: axis,
+      modality: modality,
+      window_type: windowType,
+    });
     
     return {
-      fileUrl: data[0] as string,
-      status: data[1] as string,
+      imageUrl: result[0] as string,
+      sliceNumber: result[1] as number,
+      status: result[2] as string,
+      currentSlice: result[3] as string,
+      subjectInfo: result[4] as string,
     };
   } catch (error) {
-    console.error('NeuroSAM3 NIfTI export error:', error);
+    console.error('NeuroSAM3 slice viewer error:', error);
     return {
-      fileUrl: '',
+      imageUrl: '',
+      sliceNumber: 0,
       status: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      currentSlice: '',
+      subjectInfo: '',
     };
   }
 }
 
 /**
- * Save annotation
+ * Check if NeuroSAM3 service is available
  */
-export async function saveAnnotation(): Promise<{ fileUrl: string; status: string }> {
+export async function checkServiceHealth(): Promise<boolean> {
   try {
-    const client = await getClient();
-    const result = await client.predict('/save_last_annotation', {});
-    const data = result.data as unknown[];
-    
-    return {
-      fileUrl: data[0] as string,
-      status: data[1] as string,
-    };
-  } catch (error) {
-    console.error('NeuroSAM3 save annotation error:', error);
-    return {
-      fileUrl: '',
-      status: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    };
-  }
-}
-
-/**
- * Check if NeuroSAM3 is available
- */
-export async function checkAvailability(): Promise<boolean> {
-  try {
-    const client = await getClient();
-    return client !== null;
+    const response = await fetch('https://mmrech-neurosam3.hf.space/api/queue/status', {
+      method: 'GET',
+    });
+    return response.ok;
   } catch {
     return false;
   }

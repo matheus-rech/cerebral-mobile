@@ -22,7 +22,6 @@
     "@anthropic-ai/sdk": "^0.71.2",
     "@cornerstonejs/core": "^4.15.1",
     "@expo/vector-icons": "^15.0.3",
-    "@gradio/client": "^2.0.1",
     "@niivue/niivue": "^0.66.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/slider": "^5.1.1",
