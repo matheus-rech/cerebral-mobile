@@ -1,4 +1,4 @@
-import { View, Text, Pressable, ActivityIndicator, Alert, Share, ScrollView } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Alert, Share, ScrollView, Image } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -75,6 +75,8 @@ export default function AnalysisScreen() {
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [report, setReport] = useState<MRIAnalysisReport | null>(null);
+  const [synthSegOverlay, setSynthSegOverlay] = useState<string | null>(null);
+  const [synthSegStructures, setSynthSegStructures] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const hasAutoAnalyzed = useRef(false);
 
@@ -179,6 +181,14 @@ export default function AnalysisScreen() {
 
       const mlResult = await mlResponse.json();
 
+      // Store SynthSeg-specific data if available
+      if (mlResult.segmentation_overlay) {
+        setSynthSegOverlay(`data:image/png;base64,${mlResult.segmentation_overlay}`);
+      }
+      if (mlResult.structures) {
+        setSynthSegStructures(mlResult.structures);
+      }
+
       // Create analysis report from ML result
       const analysisReport: MRIAnalysisReport = {
         id: `analysis-${Date.now()}`,
@@ -186,7 +196,7 @@ export default function AnalysisScreen() {
         imageUri: params.imageUri,
         modality: mlResult.modality || 'T1',
         view: mlResult.view || 'Axial',
-        qualityScore: mlResult.confidence || 0.85,
+        qualityScore: mlResult.quality_score || mlResult.confidence || 0.85,
         anatomicalFindings: mlResult.findings || [],
         differential: mlResult.differential || [],
         impression: mlResult.impression || `Analysis completed with ${selectedModel.name}`,
@@ -425,6 +435,67 @@ export default function AnalysisScreen() {
                 </Text>
               </View>
             </View>
+
+            {/* SynthSeg Segmentation Overlay */}
+            {synthSegOverlay && selectedModel.id === 'synthseg' && (
+              <View className="px-4">
+                <View className="bg-surface rounded-2xl p-4 border border-border">
+                  <Text className="text-lg font-bold text-foreground mb-3">🧠 Brain Structure Segmentation</Text>
+                  <View className="relative rounded-xl overflow-hidden" style={{ height: 280 }}>
+                    <Image 
+                      source={{ uri: params.imageUri }} 
+                      style={{ width: '100%', height: '100%', position: 'absolute' }}
+                      resizeMode="contain"
+                    />
+                    <Image 
+                      source={{ uri: synthSegOverlay }} 
+                      style={{ width: '100%', height: '100%', position: 'absolute', opacity: 0.6 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                  <Text className="text-xs text-muted text-center mt-2">Color-coded brain structure overlay (32 regions)</Text>
+                </View>
+              </View>
+            )}
+
+            {/* SynthSeg Brain Structures List */}
+            {synthSegStructures.length > 0 && selectedModel.id === 'synthseg' && (
+              <View className="px-4">
+                <View className="bg-surface rounded-2xl p-4 border border-border">
+                  <Text className="text-lg font-bold text-foreground mb-3">📊 Brain Structure Volumes</Text>
+                  <View className="gap-2">
+                    {synthSegStructures.slice(0, 12).map((structure: any, index: number) => (
+                      <View key={index} className="flex-row items-center justify-between bg-background rounded-lg p-2 border border-border">
+                        <View className="flex-row items-center gap-2 flex-1">
+                          <View 
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: structure.color || '#8B5CF6' }}
+                          />
+                          <Text className="text-sm text-foreground flex-1" numberOfLines={1}>
+                            {structure.name}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center gap-3">
+                          <Text className="text-sm font-semibold text-foreground">
+                            {structure.volume_ml?.toFixed(1)} ml
+                          </Text>
+                          <View className={`px-2 py-0.5 rounded ${structure.status === 'normal' ? 'bg-success/20' : structure.status === 'low' ? 'bg-error/20' : 'bg-warning/20'}`}>
+                            <Text className={`text-xs font-semibold ${structure.status === 'normal' ? 'text-success' : structure.status === 'low' ? 'text-error' : 'text-warning'}`}>
+                              {structure.percentile}%ile
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
+                    {synthSegStructures.length > 12 && (
+                      <Text className="text-xs text-muted text-center mt-2">
+                        + {synthSegStructures.length - 12} more structures
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+            )}
             
             <AnalysisReportCard report={report} />
             

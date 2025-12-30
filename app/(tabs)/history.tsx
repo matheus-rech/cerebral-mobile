@@ -194,7 +194,7 @@ export default function HistoryScreen() {
                       <View className="gap-2">
                         {report.anatomicalFindings.map((finding, index) => (
                           <View key={index} className="flex-row items-center gap-2">
-                            <Text className="text-sm">{getStatusIcon(finding.status)}</Text>
+                            <Text className="text-sm">{getStatusIcon(finding.status || 'normal')}</Text>
                             <Text className="text-sm text-foreground flex-1">
                               {finding.structure}
                             </Text>

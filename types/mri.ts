@@ -10,11 +10,17 @@ export type MRIModality = 'T1-weighted' | 'T2-weighted' | 'FLAIR' | 'T1+Gd';
 export type MRIView = 'Axial' | 'Coronal' | 'Sagittal';
 
 export interface AnatomicalFinding {
-  structure: string;
-  observation: string;
-  status: FindingStatus;
-  confidence: number;
+  structure?: string;
+  observation?: string;
+  status?: FindingStatus;
+  confidence?: number;
   location?: string;
+  // SynthSeg volumetric fields
+  type?: string;
+  severity?: string;
+  volume_ml?: number;
+  volume_mm3?: number;
+  percentile?: number;
 }
 
 export interface EmergencyFinding {

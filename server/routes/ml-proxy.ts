@@ -54,7 +54,7 @@ router.post('/ml/synthseg/segment', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetch(`${SYNTHSEG_URL}/segment`, {
+    const response = await fetch(`${SYNTHSEG_URL}/synthseg/segment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: imageData }),

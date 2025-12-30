@@ -34,6 +34,16 @@ function getStatusColor(status: FindingStatus): string {
   }
 }
 
+// Normalize various status strings to FindingStatus
+function normalizeStatus(status: string | undefined): FindingStatus {
+  if (!status) return 'normal';
+  const s = status.toLowerCase();
+  if (s === 'normal' || s === 'healthy' || s === 'mild') return 'normal';
+  if (s === 'abnormal' || s === 'high' || s === 'low' || s === 'significant' || s === 'moderate' || s === 'severe') return 'abnormal';
+  if (s === 'uncertain' || s === 'attention') return 'uncertain';
+  return 'normal';
+}
+
 export function AnalysisReportCard({ report, className }: AnalysisReportCardProps) {
   const qualityPercentage = Math.round(report.qualityScore * 100);
   const hasAbnormalities = report.anatomicalFindings.some((f) => f.status === 'abnormal');
@@ -76,24 +86,28 @@ export function AnalysisReportCard({ report, className }: AnalysisReportCardProp
               >
                 <View className="flex-row items-center justify-between mb-1">
                   <Text className="text-sm font-semibold text-foreground flex-1">
-                    {finding.structure}
+                    {finding.structure || finding.location || finding.type || 'Unknown Structure'}
                   </Text>
                   <View className="flex-row items-center gap-1">
-                    <Text className="text-base">{getStatusIcon(finding.status || 'normal')}</Text>
-                    <Text className={cn('text-xs font-semibold', getStatusColor(finding.status || 'normal'))}>
-                      {(finding.status || 'normal').toUpperCase()}
+                    <Text className="text-base">{getStatusIcon(normalizeStatus(finding.status || finding.severity))}</Text>
+                    <Text className={cn('text-xs font-semibold', getStatusColor(normalizeStatus(finding.status || finding.severity)))}>
+                      {(normalizeStatus(finding.status || finding.severity)).toUpperCase()}
                     </Text>
                   </View>
                 </View>
                 
-                <Text className="text-sm text-muted mb-1">{finding.observation}</Text>
+                <Text className="text-sm text-muted mb-1">
+                  {finding.observation || (finding.volume_ml ? `Volume: ${finding.volume_ml} ml` : '') || (finding.type ? `Type: ${finding.type}` : 'No observation')}
+                </Text>
                 
                 <View className="flex-row justify-between items-center mt-1">
-                  {finding.location && (
-                    <Text className="text-xs text-muted">📍 {finding.location}</Text>
+                  {(finding.location || finding.percentile) && (
+                    <Text className="text-xs text-muted">
+                      {finding.percentile ? `📊 ${finding.percentile}th percentile` : `📍 ${finding.location}`}
+                    </Text>
                   )}
                   <Text className="text-xs text-muted">
-                    Confidence: {Math.round(finding.confidence * 100)}%
+                    Confidence: {Math.round((finding.confidence || 0.85) * 100)}%
                   </Text>
                 </View>
               </View>

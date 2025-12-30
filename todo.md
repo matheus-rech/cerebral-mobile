@@ -681,3 +681,22 @@
 ## OpenNeuro Real Dataset Integration
 - [ ] Implement git-annex based dataset access
 - [ ] Add BIDS format dataset browser
+
+## SynthSeg Segmentation Display Fix (CRITICAL)
+- [ ] Investigate why SynthSeg segmentation is not displaying in viewer
+- [ ] Fix SynthSeg service connection and API calls
+- [ ] Implement segmentation overlay visualization in 3D viewer
+- [ ] Show 32+ anatomical regions with color-coded overlay
+- [ ] Display brain structure labels (ventricles, hippocampus, thalamus, etc.)
+- [ ] Test SynthSeg with real brain data from OpenNeuro
+
+
+## SynthSeg Display Fix (Dec 30, 2025)
+- [x] Fix SynthSeg API endpoint routing (/synthseg/segment instead of /segment)
+- [x] Add complete 32 brain structure definitions with FreeSurfer IDs
+- [x] Generate colored segmentation overlay with anatomical regions
+- [x] Implement segmentation overlay visualization in analysis screen
+- [x] Display brain structure volumes list with percentiles
+- [x] Add color-coded status indicators (normal/low/high)
+- [x] Update AnatomicalFinding type to support SynthSeg fields
+- [x] Add normalizeStatus helper for various status strings
