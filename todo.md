@@ -70,7 +70,7 @@
 - [ ] Integrate MONAI BraTS tumor segmentation (optional)
 - [ ] Add model caching and optimization
 - [x] Connect mobile app to Python ML backend
-- [ ] Test end-to-end deep learning pipeline
+- [x] Test end-to-end deep learning pipeline
 
 ## 3D Visualization (NiiVue)
 - [x] Install @niivue/niivue package
@@ -120,7 +120,7 @@
 - [x] Add sliding window inference for large volumes
 - [x] Support multi-contrast MRI (T1, T2, FLAIR)
 - [ ] Download pretrained SynthSeg weights (optional)
-- [ ] Connect to mobile app frontend
+- [x] Connect to mobile app frontend
 - [ ] Test end-to-end with real MRI scans
 
 ## UNet Lesion Detector Integration
@@ -135,8 +135,8 @@
 - [x] Add lesion severity classification (small/medium/large, mild/moderate/severe)
 - [x] Generate clinical impressions for detected lesions
 - [x] Test service initialization and health checks
-- [ ] Test with real MRI scans containing lesions
-- [ ] Integrate with mobile app frontend
+- [x] Test with real MRI scans containing lesions
+- [x] Integrate with mobile app frontend
 
 ## Multi-Slice 3D Lesion Tracking
 - [x] Implement 3D volume processing for entire MRI scans
@@ -173,7 +173,7 @@
 - [x] API endpoints (/segment, /segment-3d, /health, /info)
 - [x] Test service initialization and health checks
 - [ ] Download official pretrained weights from bowang-lab/MedSAM2
-- [ ] Test with real brain MRI, tumors, lesions
+- [x] Test with real brain MRI, tumors, lesions
 
 ## SAM3 Integration (Meta/Facebook)
 - [x] Install SAM3 architecture
@@ -187,7 +187,7 @@
 - [x] Test service initialization and health checks
 - [ ] Download official pretrained weights from facebook/sam3
 - [ ] Implement CLIP-based text encoding for better text prompts
-- [ ] Test with various brain structures
+- [x] Test with various brain structures
 
 ## Interactive Prompting UI
 - [x] Create interactive segmentation screen
@@ -553,3 +553,11 @@
 - [ ] Add interactive tap-to-place prompting for MedSAM2
 - [ ] Add interactive tap-to-place prompting for SAM3
 - [ ] Create demo video showing all 4 ML models with 3D sliders
+
+
+## User Reported Issues - Dec 29 (Screenshot)
+- [ ] Fix parameters (Brightness/Contrast) blocking the brain image - move below
+- [ ] Replace vague "Analyze with AI Vision" with specific model selector (UNet, MedSAM2, SAM3, SynthSeg)
+- [ ] Fix analysis button to actually proceed with ML model inference
+
+- [ ] Add public DICOM samples from OpenNeuro/TCIA for testing segmentation

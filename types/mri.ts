@@ -37,6 +37,8 @@ export interface MRIAnalysisReport {
   qualityScore: number;
   timestamp: string;
   imageUri: string;
+  modelUsed?: string;
+  inferenceTime?: string;
 }
 
 export interface SegmentationResult {

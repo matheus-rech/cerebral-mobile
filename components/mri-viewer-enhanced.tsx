@@ -1,13 +1,12 @@
 /**
  * Enhanced MRI Image Viewer Component
  * Displays MRI images with:
- * - Multi-slice navigation slider
- * - Brightness/contrast (windowing) controls
+ * - Controls BELOW the image (not overlaying)
+ * - Collapsible brightness/contrast controls
  * - Zoom and pan gestures
- * - Overlay opacity control
  */
 
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -34,6 +33,8 @@ interface MRIViewerEnhancedProps {
   showWindowingControls?: boolean;
   /** Show overlay opacity control */
   showOverlayControl?: boolean;
+  /** Image height - defaults to full available space */
+  imageHeight?: number | string;
 }
 
 export function MRIViewerEnhanced({
@@ -43,6 +44,7 @@ export function MRIViewerEnhanced({
   showSliceSlider = false,
   showWindowingControls = false,
   showOverlayControl = false,
+  imageHeight = 300,
 }: MRIViewerEnhancedProps) {
   const colors = useColors();
   
@@ -60,14 +62,14 @@ export function MRIViewerEnhanced({
   const [displayUri, setDisplayUri] = useState<string>('');
 
   // Windowing state (brightness/contrast)
-  const [brightness, setBrightness] = useState(1.0); // 0.5 - 1.5
-  const [contrast, setContrast] = useState(1.0); // 0.5 - 1.5
+  const [brightness, setBrightness] = useState(1.0);
+  const [contrast, setContrast] = useState(1.0);
 
   // Overlay state
-  const [overlayOpacity, setOverlayOpacity] = useState(0.5); // 0 - 1
+  const [overlayOpacity, setOverlayOpacity] = useState(0.5);
 
-  // Controls visibility
-  const [controlsVisible, setControlsVisible] = useState(true);
+  // Controls visibility - collapsed by default
+  const [controlsExpanded, setControlsExpanded] = useState(false);
 
   // Initialize slices
   useEffect(() => {
@@ -95,7 +97,6 @@ export function MRIViewerEnhanced({
       scale.value = savedScale.value * e.scale;
     })
     .onEnd(() => {
-      // Limit zoom range
       if (scale.value < 1) {
         scale.value = withTiming(1);
         savedScale.value = 1;
@@ -123,7 +124,6 @@ export function MRIViewerEnhanced({
     .numberOfTaps(2)
     .onEnd(() => {
       if (scale.value > 1) {
-        // Reset zoom
         scale.value = withTiming(1);
         savedScale.value = 1;
         translateX.value = withTiming(0);
@@ -131,25 +131,15 @@ export function MRIViewerEnhanced({
         savedTranslateX.value = 0;
         savedTranslateY.value = 0;
       } else {
-        // Zoom in 2x
         scale.value = withTiming(2);
         savedScale.value = 2;
       }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     });
 
-  // Single tap to toggle controls
-  const singleTapGesture = Gesture.Tap()
-    .numberOfTaps(1)
-    .onEnd(() => {
-      setControlsVisible((prev) => !prev);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    });
-
   const composedGesture = Gesture.Race(
     doubleTapGesture,
-    Gesture.Simultaneous(pinchGesture, panGesture),
-    singleTapGesture
+    Gesture.Simultaneous(pinchGesture, panGesture)
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -160,7 +150,6 @@ export function MRIViewerEnhanced({
     ],
   }));
 
-  // Image style with windowing (brightness/contrast)
   const imageStyle = {
     width: '100%' as const,
     height: '100%' as const,
@@ -170,23 +159,6 @@ export function MRIViewerEnhanced({
   const overlayStyle = {
     ...StyleSheet.absoluteFillObject,
     opacity: overlayOpacity,
-  };
-
-  const handleSliceChange = (value: number) => {
-    setCurrentSliceIndex(Math.round(value));
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const handleBrightnessChange = (value: number) => {
-    setBrightness(value);
-  };
-
-  const handleContrastChange = (value: number) => {
-    setContrast(value);
-  };
-
-  const handleOverlayOpacityChange = (value: number) => {
-    setOverlayOpacity(value);
   };
 
   const resetView = () => {
@@ -202,144 +174,151 @@ export function MRIViewerEnhanced({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
+  const hasControls = showWindowingControls || showSliceSlider || (showOverlayControl && overlayUri);
+
   return (
     <View className={className} style={styles.container}>
-      {/* Image Viewer */}
-      <GestureDetector gesture={composedGesture}>
-        <Animated.View style={[styles.imageContainer, animatedStyle]}>
-          <Image
-            source={{ uri: displayUri }}
-            style={imageStyle}
-            contentFit="contain"
-            transition={200}
-          />
-          {overlayUri && (
+      {/* Image Viewer - Takes full space, no overlay */}
+      <View style={[styles.imageWrapper, { height: typeof imageHeight === 'number' ? imageHeight : undefined, flex: typeof imageHeight === 'string' ? 1 : undefined }]}>
+        <GestureDetector gesture={composedGesture}>
+          <Animated.View style={[styles.imageContainer, animatedStyle]}>
             <Image
-              source={{ uri: overlayUri }}
-              style={overlayStyle}
+              source={{ uri: displayUri }}
+              style={imageStyle}
               contentFit="contain"
               transition={200}
             />
-          )}
-        </Animated.View>
-      </GestureDetector>
-
-      {/* Controls Overlay */}
-      {controlsVisible && (
-        <View style={[styles.controlsContainer, { backgroundColor: colors.surface + 'E6' }]}>
-          {/* Slice Slider */}
-          {showSliceSlider && slices.length > 1 && (
-            <View style={styles.controlSection}>
-              <View style={styles.controlHeader}>
-                <IconSymbol name="chevron.right" size={16} color={colors.foreground} />
-                <Text style={[styles.controlLabel, { color: colors.foreground }]}>
-                  Slice {currentSliceIndex + 1} / {slices.length}
-                </Text>
-              </View>
-              <Slider
-                style={styles.slider}
-                minimumValue={0}
-                maximumValue={slices.length - 1}
-                step={1}
-                value={currentSliceIndex}
-                onValueChange={handleSliceChange}
-                minimumTrackTintColor={colors.primary}
-                maximumTrackTintColor={colors.border}
-                thumbTintColor={colors.primary}
+            {overlayUri && (
+              <Image
+                source={{ uri: overlayUri }}
+                style={overlayStyle}
+                contentFit="contain"
+                transition={200}
               />
-            </View>
-          )}
+            )}
+          </Animated.View>
+        </GestureDetector>
+        
+        {/* Zoom indicator */}
+        {scale.value > 1 && (
+          <View style={[styles.zoomBadge, { backgroundColor: colors.primary }]}>
+            <Text style={styles.zoomText}>{Math.round(scale.value * 100)}%</Text>
+          </View>
+        )}
+      </View>
 
-          {/* Windowing Controls */}
-          {showWindowingControls && (
-            <>
-              <View style={styles.controlSection}>
-                <View style={styles.controlHeader}>
-                  <IconSymbol name="chevron.right" size={16} color={colors.foreground} />
-                  <Text style={[styles.controlLabel, { color: colors.foreground }]}>
-                    Brightness: {Math.round(brightness * 100)}%
-                  </Text>
-                </View>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={0.5}
-                  maximumValue={1.5}
-                  step={0.05}
-                  value={brightness}
-                  onValueChange={handleBrightnessChange}
-                  minimumTrackTintColor={colors.primary}
-                  maximumTrackTintColor={colors.border}
-                  thumbTintColor={colors.primary}
-                />
-              </View>
-
-              <View style={styles.controlSection}>
-                <View style={styles.controlHeader}>
-                  <IconSymbol name="chevron.right" size={16} color={colors.foreground} />
-                  <Text style={[styles.controlLabel, { color: colors.foreground }]}>
-                    Contrast: {Math.round(contrast * 100)}%
-                  </Text>
-                </View>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={0.5}
-                  maximumValue={1.5}
-                  step={0.05}
-                  value={contrast}
-                  onValueChange={handleContrastChange}
-                  minimumTrackTintColor={colors.primary}
-                  maximumTrackTintColor={colors.border}
-                  thumbTintColor={colors.primary}
-                />
-              </View>
-            </>
-          )}
-
-          {/* Overlay Opacity Control */}
-          {showOverlayControl && overlayUri && (
-            <View style={styles.controlSection}>
-              <View style={styles.controlHeader}>
-                <IconSymbol name="chevron.right" size={16} color={colors.foreground} />
-                <Text style={[styles.controlLabel, { color: colors.foreground }]}>
-                  Overlay: {Math.round(overlayOpacity * 100)}%
-                </Text>
-              </View>
-              <Slider
-                style={styles.slider}
-                minimumValue={0}
-                maximumValue={1}
-                step={0.05}
-                value={overlayOpacity}
-                onValueChange={handleOverlayOpacityChange}
-                minimumTrackTintColor={colors.primary}
-                maximumTrackTintColor={colors.border}
-                thumbTintColor={colors.primary}
-              />
-            </View>
-          )}
-
-          {/* Reset Button */}
+      {/* Controls Section - BELOW the image */}
+      {hasControls && (
+        <View style={[styles.controlsSection, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          {/* Collapse/Expand Header */}
           <Pressable
-            onPress={resetView}
-            style={({ pressed }) => [
-              styles.resetButton,
-              { backgroundColor: colors.primary },
-              pressed && styles.pressed,
-            ]}
+            onPress={() => {
+              setControlsExpanded(!controlsExpanded);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            style={styles.controlsHeader}
           >
-            <Text style={[styles.resetButtonText, { color: colors.background }]}>
-              Reset View
-            </Text>
+            <View style={styles.controlsHeaderLeft}>
+              <IconSymbol 
+                name={controlsExpanded ? "chevron.down" : "chevron.right"} 
+                size={16} 
+                color={colors.muted} 
+              />
+              <Text style={[styles.controlsTitle, { color: colors.foreground }]}>
+                Image Controls
+              </Text>
+            </View>
+            <Pressable
+              onPress={resetView}
+              style={[styles.resetButton, { backgroundColor: colors.primary + '20' }]}
+            >
+              <Text style={[styles.resetButtonText, { color: colors.primary }]}>Reset</Text>
+            </Pressable>
           </Pressable>
-        </View>
-      )}
 
-      {/* Tap hint */}
-      {!controlsVisible && (
-        <View style={[styles.hint, { backgroundColor: colors.surface + '99' }]}>
-          <Text style={[styles.hintText, { color: colors.foreground }]}>
-            Tap to show controls
-          </Text>
+          {/* Expanded Controls */}
+          {controlsExpanded && (
+            <View style={styles.controlsContent}>
+              {/* Slice Slider */}
+              {showSliceSlider && slices.length > 1 && (
+                <View style={styles.controlRow}>
+                  <Text style={[styles.controlLabel, { color: colors.muted }]}>
+                    Slice {currentSliceIndex + 1}/{slices.length}
+                  </Text>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={0}
+                    maximumValue={slices.length - 1}
+                    step={1}
+                    value={currentSliceIndex}
+                    onValueChange={(v) => setCurrentSliceIndex(Math.round(v))}
+                    minimumTrackTintColor={colors.primary}
+                    maximumTrackTintColor={colors.border}
+                    thumbTintColor={colors.primary}
+                  />
+                </View>
+              )}
+
+              {/* Brightness */}
+              {showWindowingControls && (
+                <>
+                  <View style={styles.controlRow}>
+                    <Text style={[styles.controlLabel, { color: colors.muted }]}>
+                      Brightness {Math.round(brightness * 100)}%
+                    </Text>
+                    <Slider
+                      style={styles.slider}
+                      minimumValue={0.5}
+                      maximumValue={1.5}
+                      step={0.05}
+                      value={brightness}
+                      onValueChange={setBrightness}
+                      minimumTrackTintColor={colors.primary}
+                      maximumTrackTintColor={colors.border}
+                      thumbTintColor={colors.primary}
+                    />
+                  </View>
+
+                  <View style={styles.controlRow}>
+                    <Text style={[styles.controlLabel, { color: colors.muted }]}>
+                      Contrast {Math.round(contrast * 100)}%
+                    </Text>
+                    <Slider
+                      style={styles.slider}
+                      minimumValue={0.5}
+                      maximumValue={1.5}
+                      step={0.05}
+                      value={contrast}
+                      onValueChange={setContrast}
+                      minimumTrackTintColor={colors.primary}
+                      maximumTrackTintColor={colors.border}
+                      thumbTintColor={colors.primary}
+                    />
+                  </View>
+                </>
+              )}
+
+              {/* Overlay Opacity */}
+              {showOverlayControl && overlayUri && (
+                <View style={styles.controlRow}>
+                  <Text style={[styles.controlLabel, { color: colors.muted }]}>
+                    Overlay {Math.round(overlayOpacity * 100)}%
+                  </Text>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={0}
+                    maximumValue={1}
+                    step={0.05}
+                    value={overlayOpacity}
+                    onValueChange={setOverlayOpacity}
+                    minimumTrackTintColor={colors.primary}
+                    maximumTrackTintColor={colors.border}
+                    thumbTintColor={colors.primary}
+                  />
+                </View>
+              )}
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -349,6 +328,9 @@ export function MRIViewerEnhanced({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  imageWrapper: {
+    backgroundColor: '#000',
     overflow: 'hidden',
   },
   imageContainer: {
@@ -356,56 +338,61 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  controlsContainer: {
+  zoomBadge: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    gap: 12,
+    top: 8,
+    right: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  controlSection: {
-    gap: 8,
+  zoomText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
-  controlHeader: {
+  controlsSection: {
+    borderTopWidth: 1,
+  },
+  controlsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  controlsHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  controlLabel: {
+  controlsTitle: {
     fontSize: 14,
     fontWeight: '600',
   },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
   resetButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   resetButtonText: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '600',
   },
-  pressed: {
-    opacity: 0.7,
-  },
-  hint: {
-    position: 'absolute',
-    top: 16,
-    alignSelf: 'center',
-    paddingVertical: 8,
+  controlsContent: {
     paddingHorizontal: 16,
-    borderRadius: 20,
+    paddingBottom: 16,
+    gap: 12,
   },
-  hintText: {
+  controlRow: {
+    gap: 4,
+  },
+  controlLabel: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  slider: {
+    width: '100%',
+    height: 32,
   },
 });

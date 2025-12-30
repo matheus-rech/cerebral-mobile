@@ -60,8 +60,17 @@ async function startServer() {
   app.use("/samples", (req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET");
+    res.header("Access-Control-Expose-Headers", "Content-Length");
     next();
   }, express.static(path.join(__dirname, "../../assets/samples")));
+
+  // Serve public samples folder
+  app.use("/public", (req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET");
+    res.header("Access-Control-Expose-Headers", "Content-Length");
+    next();
+  }, express.static(path.join(__dirname, "../../public")));
 
   registerOAuthRoutes(app);
 

@@ -1,22 +1,13 @@
-import { ScrollView, Text, View, Pressable, ActivityIndicator, Alert, Platform, StyleSheet } from "react-native";
+import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform } from "react-native";
 import { useState, useCallback } from "react";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring,
-  withTiming,
-  interpolate,
-} from "react-native-reanimated";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { AVAILABLE_DATASETS, loadRandomSample } from "@/services/huggingface";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+import { AVAILABLE_DATASETS, PUBLIC_SAMPLES, loadRandomSample, getSampleUrl } from "@/services/huggingface";
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -48,6 +39,19 @@ export default function HomeScreen() {
       setLoading(false);
       setLoadingId(null);
     }
+  };
+
+  const handlePublicSample = (sample: typeof PUBLIC_SAMPLES[0]) => {
+    haptic();
+    // Get full URL for the sample (converts relative path to absolute)
+    const fullUrl = getSampleUrl(sample.url);
+    router.push({
+      pathname: "/viewer-3d",
+      params: { 
+        imageUri: fullUrl,
+        title: sample.name
+      },
+    });
   };
 
   const handleDICOM = async () => {
@@ -85,10 +89,12 @@ export default function HomeScreen() {
 
   const handle3DViewer = () => {
     haptic();
+    // Use local server URL for proper CORS support
+    const mniUrl = getSampleUrl('/public/samples/mni152.nii.gz');
     router.push({
       pathname: "/viewer-3d",
       params: { 
-        imageUri: "https://niivue.github.io/niivue-demo-images/mni152.nii.gz",
+        imageUri: mniUrl,
         title: "MNI152 Brain Template"
       },
     });
@@ -183,13 +189,62 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          {/* Datasets Section */}
+          {/* Public NIfTI Samples - Ready to Test */}
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              Sample Datasets
+              🧪 Test Samples
             </Text>
             <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
-              From HuggingFace
+              Public NIfTI volumes - Ready to analyze
+            </Text>
+          </View>
+
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.samplesScroll}
+          >
+            {PUBLIC_SAMPLES.map((sample) => (
+              <Pressable 
+                key={sample.id} 
+                onPress={() => handlePublicSample(sample)}
+                style={({ pressed }) => [
+                  styles.sampleCard,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  pressed && styles.cardPressed,
+                ]}
+              >
+                <View style={[styles.sampleIcon, { backgroundColor: colors.primary + "15" }]}>
+                  <Text style={{ fontSize: 24 }}>
+                    {sample.id === 'mni152' ? '🧠' : 
+                     sample.id === 'aal' ? '🗺️' : 
+                     sample.id === 'fmri' ? '🔥' : 
+                     sample.id === 'dwi' ? '🌐' : 
+                     sample.id === 'ct_head' ? '💀' : '🔬'}
+                  </Text>
+                </View>
+                <Text style={[styles.sampleName, { color: colors.foreground }]} numberOfLines={1}>
+                  {sample.name}
+                </Text>
+                <Text style={[styles.sampleDesc, { color: colors.muted }]} numberOfLines={2}>
+                  {sample.description}
+                </Text>
+                <View style={[styles.sampleBadge, { backgroundColor: colors.primary + "20" }]}>
+                  <Text style={[styles.sampleBadgeText, { color: colors.primary }]}>
+                    {sample.type.toUpperCase()}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          {/* HuggingFace Datasets Section */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              📊 HuggingFace Datasets
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
+              2D MRI slices for analysis
             </Text>
           </View>
 
@@ -248,10 +303,10 @@ export default function HomeScreen() {
             </View>
             <View style={styles.modelsList}>
               {[
-                { name: "UNet", desc: "Lesion Detection", color: "#EF4444" },
-                { name: "MedSAM2", desc: "Interactive Segmentation", color: "#F59E0B" },
-                { name: "SAM3", desc: "Zero-Shot Analysis", color: "#8B5CF6" },
-                { name: "SynthSeg", desc: "Brain Structures", color: "#06B6D4" },
+                { name: "UNet", desc: "Lesion Detection", color: "#3B82F6" },
+                { name: "MedSAM2", desc: "Interactive Segmentation", color: "#22C55E" },
+                { name: "SAM3", desc: "Zero-Shot Analysis", color: "#F97316" },
+                { name: "SynthSeg", desc: "Brain Structures", color: "#8B5CF6" },
               ].map((model) => (
                 <View key={model.name} style={styles.modelItem}>
                   <View style={[styles.modelDot, { backgroundColor: model.color }]} />
@@ -407,17 +462,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   gridTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
   },
   gridSubtitle: {
     fontSize: 12,
   },
   sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "baseline",
     marginTop: 8,
+    marginBottom: 4,
   },
   sectionTitle: {
     fontSize: 18,
@@ -425,6 +478,46 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: 13,
+    marginTop: 2,
+  },
+  samplesScroll: {
+    paddingVertical: 8,
+    gap: 12,
+  },
+  sampleCard: {
+    width: 140,
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    marginRight: 12,
+  },
+  sampleIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  sampleName: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  sampleDesc: {
+    fontSize: 11,
+    lineHeight: 14,
+    marginBottom: 8,
+  },
+  sampleBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  sampleBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
   },
   datasetsContainer: {
     gap: 10,
@@ -432,8 +525,8 @@ const styles = StyleSheet.create({
   datasetCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
     borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
     gap: 12,
   },
@@ -445,9 +538,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   datasetIndexText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
-    fontVariant: ["tabular-nums"],
   },
   datasetInfo: {
     flex: 1,
@@ -461,9 +553,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   datasetArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -475,8 +567,8 @@ const styles = StyleSheet.create({
   },
   modelsHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   modelsTitle: {
@@ -489,10 +581,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusText: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    fontSize: 12,
+    fontWeight: "600",
   },
   modelsList: {
     gap: 12,
@@ -503,9 +593,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   modelDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   modelInfo: {
     flex: 1,

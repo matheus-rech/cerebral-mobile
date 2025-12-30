@@ -32,6 +32,58 @@ export const AVAILABLE_DATASETS: HuggingFaceDataset[] = [
   },
 ];
 
+// Get the API base URL for serving local NIfTI files
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // For Manus proxy URLs, replace 8081 with 3000 in the subdomain
+    const hostname = window.location.hostname;
+    if (hostname.includes('8081-')) {
+      // Replace 8081 with 3000 in the subdomain for Manus proxy
+      const apiHostname = hostname.replace('8081-', '3000-');
+      return `${window.location.protocol}//${apiHostname}`;
+    }
+    // For local development, use port 3000
+    if (window.location.port === '8081') {
+      return `${window.location.protocol}//${window.location.hostname}:3000`;
+    }
+    return window.location.origin;
+  }
+  return 'http://localhost:3000';
+};
+
+// Public DICOM/NIfTI samples for direct testing
+// Using local server to serve files with proper CORS headers
+export const PUBLIC_SAMPLES = [
+  {
+    id: 'mni152',
+    name: 'MNI152 Brain Template',
+    description: 'Standard brain atlas template',
+    url: '/public/samples/mni152.nii.gz', // Served from local API server
+    type: 'nifti' as const,
+  },
+  {
+    id: 'flair',
+    name: 'FLAIR Brain MRI',
+    description: 'Fluid-attenuated inversion recovery scan',
+    url: '/public/samples/flair.nii.gz',
+    type: 'nifti' as const,
+  },
+  {
+    id: 'lesion',
+    name: 'Brain Lesion Case',
+    description: 'MRI with visible brain lesion',
+    url: '/public/samples/brain_lesion.nii.gz',
+    type: 'nifti' as const,
+  },
+];
+
+// Helper to get full URL for a sample
+export const getSampleUrl = (relativePath: string): string => {
+  const baseUrl = getApiBaseUrl();
+  return `${baseUrl}${relativePath}`;
+
+};
+
 /**
  * Load a random sample from a HuggingFace dataset
  */
