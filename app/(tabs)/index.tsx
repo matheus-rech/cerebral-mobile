@@ -1,4 +1,4 @@
-import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform } from "react-native";
+import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform, TouchableOpacity } from "react-native";
 import { useState, useCallback } from "react";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -237,6 +237,29 @@ export default function HomeScreen() {
               </Pressable>
             ))}
           </ScrollView>
+
+          {/* OpenNeuro Datasets Section */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              🌐 OpenNeuro Datasets
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
+              Real neuroimaging research data
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => {
+              haptic();
+              router.push('/openneuro-browser');
+            }}
+            style={[styles.openNeuroButton, { backgroundColor: colors.primary }]}
+          >
+            <Text style={styles.openNeuroButtonText}>🧠 Browse OpenNeuro Datasets</Text>
+            <Text style={[styles.openNeuroSubtext, { color: 'rgba(255,255,255,0.8)' }]}>
+              Access thousands of public MRI datasets
+            </Text>
+          </TouchableOpacity>
 
           {/* HuggingFace Datasets Section */}
           <View style={styles.sectionHeader}>
@@ -607,5 +630,22 @@ const styles = StyleSheet.create({
   modelDesc: {
     fontSize: 12,
     marginTop: 1,
+  },
+  openNeuroButton: {
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  openNeuroButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  openNeuroSubtext: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
   },
 });

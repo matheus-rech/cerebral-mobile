@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { ExportMaskModal } from '@/components/ExportMaskModal';
+import { MaskEditor } from '@/components/MaskEditor';
 import type { MaskData } from '@/services/mask-export';
 import { useMLSettings } from '@/contexts/ml-settings';
 import * as NeuroSAM3 from '@/services/neurosam3';
@@ -95,6 +96,7 @@ export default function InteractiveSegmentScreen() {
   const [imageDims, setImageDims] = useState({ width: 300, height: 300 });
   const [showExportModal, setShowExportModal] = useState(false);
   const [maskDataForExport, setMaskDataForExport] = useState<MaskData | null>(null);
+  const [showMaskEditor, setShowMaskEditor] = useState(false);
   
   const imageRef = useRef<Image>(null);
 
@@ -156,77 +158,129 @@ export default function InteractiveSegmentScreen() {
     haptic();
 
     try {
-      // Use tRPC to call the server proxy
       let result: any;
       const apiBase = getApiBaseUrl();
-      console.log('API Base URL:', apiBase);
+      const useNeuroSAM3 = settings.backend === 'neurosam3';
       
       if (promptType === 'point' && points.length > 0) {
         const lastPoint = points[points.length - 1];
-        // Normalize coordinates to 0-1 range
-        const normalizedPoint = {
-          x: lastPoint.x / imageDims.width,
-          y: lastPoint.y / imageDims.height,
-        };
         
-        if (selectedModel === 'medsam2') {
-          // Call MedSAM2 via server proxy
-          const response = await fetch(`${getApiBaseUrl()}/api/ml/medsam2/segment`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageUri: actualImageUri,
-              prompts: [{ type: 'point', x: normalizedPoint.x, y: normalizedPoint.y }],
-            }),
-          });
-          result = await response.json();
+        if (useNeuroSAM3) {
+          // Use NeuroSAM3 cloud for point prompts
+          try {
+            const neuroResult = await NeuroSAM3.processWithPointPrompt(
+              actualImageUri || '',
+              lastPoint.x,
+              lastPoint.y,
+              settings.modality,
+              settings.windowType,
+              settings.colormap,
+              settings.transparency
+            );
+            
+            if (neuroResult.success && neuroResult.imageUrl) {
+              result = {
+                mask_url: neuroResult.imageUrl,
+                status: neuroResult.status,
+                confidence: 0.85,
+              };
+            } else {
+              result = { error: neuroResult.status || 'NeuroSAM3 point segmentation failed' };
+            }
+          } catch (error) {
+            console.error('NeuroSAM3 point error:', error);
+            result = { error: 'NeuroSAM3 cloud unavailable' };
+          }
         } else {
-          // Call SAM3 via server proxy
-          const url = `${apiBase}/api/ml/sam3/segment-point`;
-          console.log('SAM3 fetch URL:', url);
-          console.log('SAM3 request body:', { imageUri: actualImageUri, point: normalizedPoint });
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageUri: actualImageUri,
-              point: normalizedPoint,
-            }),
-          });
-          console.log('SAM3 response status:', response.status);
-          result = await response.json();
-          console.log('SAM3 result:', result);
+          // Use local API
+          const normalizedPoint = {
+            x: lastPoint.x / imageDims.width,
+            y: lastPoint.y / imageDims.height,
+          };
+          
+          if (selectedModel === 'medsam2') {
+            const response = await fetch(`${apiBase}/api/ml/medsam2/segment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                imageUri: actualImageUri,
+                prompts: [{ type: 'point', x: normalizedPoint.x, y: normalizedPoint.y }],
+              }),
+            });
+            result = await response.json();
+          } else {
+            const response = await fetch(`${apiBase}/api/ml/sam3/segment-point`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                imageUri: actualImageUri,
+                point: normalizedPoint,
+              }),
+            });
+            result = await response.json();
+          }
         }
       } else if (promptType === 'box' && boxes.length > 0) {
         const lastBox = boxes[boxes.length - 1];
-        // Normalize box coordinates
-        const normalizedBox = {
-          x: lastBox.x / imageDims.width,
-          y: lastBox.y / imageDims.height,
-          w: lastBox.w / imageDims.width,
-          h: lastBox.h / imageDims.height,
-        };
         
-        if (selectedModel === 'medsam2') {
-          const response = await fetch(`${getApiBaseUrl()}/api/ml/medsam2/segment`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageUri: actualImageUri,
-              prompts: [{ type: 'box', ...normalizedBox }],
-            }),
-          });
-          result = await response.json();
+        if (useNeuroSAM3) {
+          // Use NeuroSAM3 cloud for box prompts
+          try {
+            const neuroResult = await NeuroSAM3.processWithBoxPrompt(
+              actualImageUri || '',
+              lastBox.x,
+              lastBox.y,
+              lastBox.x + lastBox.w,
+              lastBox.y + lastBox.h,
+              settings.modality,
+              settings.windowType,
+              settings.colormap,
+              settings.transparency
+            );
+            
+            if (neuroResult.success && neuroResult.imageUrl) {
+              result = {
+                mask_url: neuroResult.imageUrl,
+                status: neuroResult.status,
+                confidence: 0.85,
+              };
+            } else {
+              result = { error: neuroResult.status || 'NeuroSAM3 box segmentation failed' };
+            }
+          } catch (error) {
+            console.error('NeuroSAM3 box error:', error);
+            result = { error: 'NeuroSAM3 cloud unavailable' };
+          }
         } else {
-          const response = await fetch(`${getApiBaseUrl()}/api/ml/sam3/segment-box`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageUri: actualImageUri,
-              box: normalizedBox,
-            }),
-          });
-          result = await response.json();
+          // Use local API
+          const normalizedBox = {
+            x: lastBox.x / imageDims.width,
+            y: lastBox.y / imageDims.height,
+            w: lastBox.w / imageDims.width,
+            h: lastBox.h / imageDims.height,
+          };
+          
+          if (selectedModel === 'medsam2') {
+            const response = await fetch(`${apiBase}/api/ml/medsam2/segment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                imageUri: actualImageUri,
+                prompts: [{ type: 'box', ...normalizedBox }],
+              }),
+            });
+            result = await response.json();
+          } else {
+            const response = await fetch(`${apiBase}/api/ml/sam3/segment-box`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                imageUri: actualImageUri,
+                box: normalizedBox,
+              }),
+            });
+            result = await response.json();
+          }
         }
       } else if (promptType === 'text' && textPrompt.trim()) {
         // Use NeuroSAM3 cloud for text prompts when cloud backend is selected
@@ -626,28 +680,29 @@ export default function InteractiveSegmentScreen() {
               )}
             </View>
             
-            {/* Export Button */}
+            {/* Edit & Export Buttons */}
             {maskUri && (
-              <TouchableOpacity
-                onPress={() => {
-                  // Create mask data for export
-                  const maskData: MaskData = {
-                    mask: [], // Will be populated from the mask image
-                    width: imageDims.width,
-                    height: imageDims.height,
-                    modelName: currentModelInfo.name,
-                    confidence: confidence || 0,
-                    timestamp: new Date().toISOString(),
-                    originalImageUri: actualImageUri,
-                  };
-                  setMaskDataForExport(maskData);
-                  setShowExportModal(true);
-                }}
-                className="mt-3 p-3 rounded-xl flex-row items-center justify-center"
-                style={{ backgroundColor: currentModelInfo.color }}
-              >
-                <Text className="text-white font-semibold">📤 Export Mask</Text>
-              </TouchableOpacity>
+              <View className="flex-row gap-2 mt-3">
+                <TouchableOpacity
+                  onPress={() => {
+                    haptic();
+                    setShowMaskEditor(true);
+                  }}
+                  className="flex-1 p-3 rounded-xl flex-row items-center justify-center bg-purple-600"
+                >
+                  <Text className="text-white font-semibold">✏️ Edit Mask</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    haptic();
+                    setShowExportModal(true);
+                  }}
+                  className="flex-1 p-3 rounded-xl flex-row items-center justify-center"
+                  style={{ backgroundColor: currentModelInfo.color }}
+                >
+                  <Text className="text-white font-semibold">📤 Export</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         )}
@@ -703,6 +758,22 @@ export default function InteractiveSegmentScreen() {
         onClose={() => setShowExportModal(false)}
         maskData={maskDataForExport}
       />
+      
+      {/* Mask Editor Modal */}
+      {showMaskEditor && maskUri && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 }}>
+          <MaskEditor
+            imageUri={actualImageUri || SAMPLE_BRAIN_IMAGE}
+            maskUri={maskUri}
+            imageDimensions={imageDims}
+            onMaskUpdate={(updatedMaskBase64) => {
+              // Update the mask with edited version
+              setMaskUri(`data:image/png;base64,${updatedMaskBase64}`);
+            }}
+            onClose={() => setShowMaskEditor(false)}
+          />
+        </View>
+      )}
     </ScreenContainer>
   );
 }

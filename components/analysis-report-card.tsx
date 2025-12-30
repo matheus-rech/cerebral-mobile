@@ -79,9 +79,9 @@ export function AnalysisReportCard({ report, className }: AnalysisReportCardProp
                     {finding.structure}
                   </Text>
                   <View className="flex-row items-center gap-1">
-                    <Text className="text-base">{getStatusIcon(finding.status)}</Text>
-                    <Text className={cn('text-xs font-semibold', getStatusColor(finding.status))}>
-                      {finding.status.toUpperCase()}
+                    <Text className="text-base">{getStatusIcon(finding.status || 'normal')}</Text>
+                    <Text className={cn('text-xs font-semibold', getStatusColor(finding.status || 'normal'))}>
+                      {(finding.status || 'normal').toUpperCase()}
                     </Text>
                   </View>
                 </View>

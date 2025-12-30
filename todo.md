@@ -628,3 +628,56 @@
 - [ ] Add OpenNeuro dataset access for real MRI data
 - [ ] Replace mock ML service with cloud API connections
 - [ ] Add fallback between local and cloud inference
+
+
+## Real-time Segmentation Preview
+- [ ] Add low-resolution preview while placing points
+- [ ] Debounce preview requests to avoid API spam
+- [ ] Show preview overlay with reduced opacity
+- [ ] Render full-quality mask on button press
+- [ ] Add loading indicator for preview generation
+
+## Mask Editing Tools
+- [ ] Create eraser tool for removing mask regions
+- [ ] Create brush tool for adding to mask regions
+- [ ] Add brush size slider control
+- [ ] Implement touch/drag gesture for painting
+- [ ] Add undo/redo for editing operations
+- [ ] Toggle between edit mode and prompt mode
+
+## NeuroSAM3 Production Integration
+- [ ] Wire up /process_with_status endpoint for text prompts
+- [ ] Handle async processing with status polling
+- [ ] Display processing progress to user
+- [ ] Fallback to local mock when cloud unavailable
+- [ ] Add error handling for cloud API failures
+
+## OpenNeuro Integration
+- [ ] Review OpenNeuro git documentation
+- [ ] Implement dataset cloning via git-annex
+- [ ] Add dataset browser for OpenNeuro
+- [ ] Support BIDS format datasets
+
+
+## Real-time Segmentation Preview (Real API)
+- [ ] Implement preview using NeuroSAM3 /process_with_status endpoint
+- [ ] Debounce preview requests to avoid API spam
+- [ ] Show preview overlay with reduced opacity
+- [ ] Render full-quality mask on button press
+
+## Mask Editing Tools
+- [ ] Create eraser tool for removing mask regions
+- [ ] Create brush tool for adding to mask regions
+- [ ] Add brush size slider control
+- [ ] Implement touch/drag gesture for painting
+- [ ] Add undo/redo for editing operations
+
+## NeuroSAM3 Production Integration (Real)
+- [ ] Wire up /process_with_status endpoint for all prompts
+- [ ] Handle async processing with status polling
+- [ ] Display processing progress to user
+- [ ] Remove all mock implementations
+
+## OpenNeuro Real Dataset Integration
+- [ ] Implement git-annex based dataset access
+- [ ] Add BIDS format dataset browser
