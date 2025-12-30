@@ -600,3 +600,11 @@
 - [ ] Add slice auto-play feature
 - [ ] Add annotation save/load functionality
 - [x] Add colormap selection for overlays
+
+
+## Text Prompt Segmentation
+- [x] Add text prompt input UI to interactive segmentation screen
+- [x] Wire up NeuroSAM3 /process_with_status endpoint for text prompts
+- [x] Add prompt suggestions/examples for common segmentation tasks
+- [x] Test with various natural language prompts
+- [x] Handle cloud backend unavailable gracefully

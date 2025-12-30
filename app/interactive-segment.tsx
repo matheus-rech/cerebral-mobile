@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { ExportMaskModal } from '@/components/ExportMaskModal';
 import type { MaskData } from '@/services/mask-export';
+import { useMLSettings } from '@/contexts/ml-settings';
+import * as NeuroSAM3 from '@/services/neurosam3';
 import {
   View,
   Text,
@@ -41,8 +43,21 @@ const MODELS = {
   },
 };
 
+// Common text prompt suggestions for brain MRI segmentation
+const TEXT_PROMPT_SUGGESTIONS = [
+  { label: 'Tumor', prompt: 'segment the tumor' },
+  { label: 'Ventricles', prompt: 'segment the ventricles' },
+  { label: 'Hippocampus', prompt: 'segment the hippocampus' },
+  { label: 'White Matter', prompt: 'segment the white matter' },
+  { label: 'Grey Matter', prompt: 'segment the grey matter' },
+  { label: 'Lesion', prompt: 'segment the lesion' },
+  { label: 'Brain Stem', prompt: 'segment the brain stem' },
+  { label: 'Cerebellum', prompt: 'segment the cerebellum' },
+];
+
 export default function InteractiveSegmentScreen() {
   const params = useLocalSearchParams<{ imageUri: string; model?: string }>();
+  const { settings } = useMLSettings();
   const [selectedModel, setSelectedModel] = useState<ModelType>(
     (params.model as ModelType) || 'medsam2'
   );
@@ -191,15 +206,51 @@ export default function InteractiveSegmentScreen() {
           result = await response.json();
         }
       } else if (promptType === 'text' && textPrompt.trim()) {
-        const response = await fetch('/api/ml/sam3/segment-text', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageUri: actualImageUri,
-            text: textPrompt,
-          }),
-        });
-        result = await response.json();
+        // Use NeuroSAM3 cloud for text prompts when cloud backend is selected
+        if (settings.backend === 'neurosam3') {
+          try {
+            const neuroResult = await NeuroSAM3.processWithTextPrompt(
+              actualImageUri || '',
+              textPrompt,
+              settings.modality,
+              settings.windowType
+            );
+            
+            if (neuroResult.success && neuroResult.imageUrl) {
+              // NeuroSAM3 returns an image URL, not base64
+              result = {
+                mask_url: neuroResult.imageUrl,
+                status: neuroResult.status,
+                confidence: 0.85, // NeuroSAM3 doesn't return confidence directly
+              };
+            } else {
+              result = { error: neuroResult.status || 'NeuroSAM3 segmentation failed' };
+            }
+          } catch (neuroError) {
+            console.error('NeuroSAM3 error:', neuroError);
+            // Fall back to local backend
+            const response = await fetch('/api/ml/sam3/segment-text', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                imageUri: actualImageUri,
+                text: textPrompt,
+              }),
+            });
+            result = await response.json();
+          }
+        } else {
+          // Use local backend
+          const response = await fetch('/api/ml/sam3/segment-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageUri: actualImageUri,
+              text: textPrompt,
+            }),
+          });
+          result = await response.json();
+        }
       } else {
         Alert.alert('No Prompt', 'Please tap on the image or draw a box to select a region');
         setIsSegmenting(false);
@@ -210,6 +261,9 @@ export default function InteractiveSegmentScreen() {
         // Handle successful segmentation
         if (result.mask_base64) {
           setMaskUri(`data:image/png;base64,${result.mask_base64}`);
+        } else if (result.mask_url) {
+          // NeuroSAM3 returns a URL instead of base64
+          setMaskUri(result.mask_url);
         }
         setConfidence(result.confidence || result.iou_score || 0.85);
         setAreaPixels(result.area_pixels || result.area || 0);
@@ -380,6 +434,46 @@ export default function InteractiveSegmentScreen() {
               onSubmitEditing={handleSegment}
               multiline
             />
+            
+            {/* Prompt Suggestions */}
+            <View className="mt-3">
+              <Text className="text-xs text-muted mb-2">QUICK PROMPTS</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View className="flex-row gap-2">
+                  {TEXT_PROMPT_SUGGESTIONS.map((suggestion, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => {
+                        setTextPrompt(suggestion.prompt);
+                        haptic();
+                      }}
+                      className={`px-3 py-2 rounded-lg ${
+                        textPrompt === suggestion.prompt ? 'bg-primary' : 'bg-surface border border-border'
+                      }`}
+                    >
+                      <Text className={`text-sm ${
+                        textPrompt === suggestion.prompt ? 'text-white font-semibold' : 'text-foreground'
+                      }`}>
+                        {suggestion.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+            
+            {/* Backend indicator */}
+            <View className="mt-3 flex-row items-center">
+              <View className={`w-2 h-2 rounded-full mr-2 ${
+                settings.backend === 'neurosam3' ? 'bg-success' : 'bg-primary'
+              }`} />
+              <Text className="text-xs text-muted">
+                {settings.backend === 'neurosam3' 
+                  ? 'Using NeuroSAM3 Cloud (GPU-accelerated)' 
+                  : 'Using Local Backend'
+                }
+              </Text>
+            </View>
           </View>
         )}
 
