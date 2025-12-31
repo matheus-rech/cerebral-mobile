@@ -48,27 +48,29 @@ pnpm db:push
 ```bash
 cd ml-backend
 pip install -r requirements.txt
-python3 test_monai.py  # Verify installation
 
 # Download SAM pretrained weights (~358 MB) - required for MedSAM2 and SAM3
 python3 download_weights.py
 
-# Start individual services (each on different ports)
-python3 synthseg_service.py     # Port 5002 (SynthSeg - 32 brain structures)
-python3 unet_lesion_detector.py # Port 5003 (UNet - lesion detection)
-python3 lesion_tracker_3d.py    # Port 5004 (3D tracking)
-python3 medsam2_service.py      # Port 5005 (MedSAM2)
-python3 sam3_service.py         # Port 5006 (SAM3)
+# Start the Unified ML Gateway (recommended - single command)
+python3 start_gateway.py   # Port 5000 - all models in one service
 ```
 
-**Legacy files (deprecated):** `cerebral_system.py`, `cerebral_synthseg.py`, `monai_segmentation.py`
+**Gateway features:**
+- Single port (5000) for all ML models
+- Health monitoring: `curl http://localhost:5000/health`
+- Auto-retry on timeout/crash
+- Hybrid loading: UNet + SynthSeg eager, MedSAM2 + SAM3 lazy
+- MCP tools for agent integration
+
+**Legacy services (deprecated):** Individual service files (`synthseg_service.py`, `unet_lesion_detector.py`, etc.) are replaced by the gateway.
 
 ## Architecture
 
 ### Three-Tier Stack
 
 ```
-Mobile/Web App (Expo) → Node.js Server (port 3000) → Python ML Services (ports 5001-5006)
+Mobile/Web App (Expo) → Node.js Server (port 3000) → Unified ML Gateway (port 5000)
 ```
 
 ### Key Directories
@@ -90,7 +92,10 @@ Mobile/Web App (Expo) → Node.js Server (port 3000) → Python ML Services (por
   - `huggingface.ts` - HuggingFace dataset integration
   - `dicom-parser.ts` - DICOM file parsing and metadata extraction
   - `agreement-heatmap.ts` - Model comparison heatmaps
-- `ml-backend/` - Python Flask services for ML inference
+- `ml-backend/` - Unified ML Gateway (FastAPI)
+  - `gateway/` - Gateway application code
+  - `gateway/models/` - Model wrappers (unet, synthseg, medsam2, sam3)
+  - `start_gateway.py` - Single entry point
 - `types/` - TypeScript type definitions
   - `model-config.ts` - ML model configuration types
   - `mri.ts` - MRI analysis result types
@@ -98,14 +103,14 @@ Mobile/Web App (Expo) → Node.js Server (port 3000) → Python ML Services (por
   - `schema.ts` - Tables: users, studies, analyses, segmentations
   - `relations.ts` - Drizzle ORM relations between tables
 
-### ML Models
+### ML Models (via Gateway port 5000)
 
-| Model | Port | Use Case | Parameters |
-|-------|------|----------|------------|
-| UNet | 5003 | Lesion detection, tumors | 7.7M |
-| MedSAM2 | 5005 | Interactive segmentation with prompts | 89M |
-| SAM3 | 5006 | Text/point/box-based segmentation | 636M |
-| SynthSeg | 5002 | 32-structure brain parcellation | 18M |
+| Model | Endpoint | Use Case | Loading | Parameters |
+|-------|----------|----------|---------|------------|
+| UNet | `/api/ml/unet/detect` | Lesion detection, tumors | Eager | 7.7M |
+| SynthSeg | `/api/ml/synthseg/segment` | 32-structure brain parcellation | Eager | 18M |
+| MedSAM2 | `/api/ml/medsam2/segment` | Interactive segmentation with prompts | Lazy | 89M |
+| SAM3 | `/api/ml/sam3/segment` | Text/point/box-based segmentation | Lazy | 636M |
 
 ### Data Flow
 
@@ -130,11 +135,7 @@ Tests use Vitest with mocked React Native modules. Test setup in `tests/setup.ts
 
 ```bash
 EXPO_PUBLIC_API_URL=http://localhost:3000  # Node.js server
-SYNTHSEG_URL=http://localhost:5002
-MONAI_URL=http://localhost:5001
-UNET_URL=http://localhost:5003
-MEDSAM2_URL=http://localhost:5005
-SAM3_URL=http://localhost:5006
+ML_GATEWAY_URL=http://localhost:5000       # Unified ML Gateway
 ```
 
 ### Database Schema
@@ -159,14 +160,30 @@ Soft deletes: `studies`, `analyses`, and `segmentations` support soft delete via
 - **API proxy for ML**: Frontend calls `/api/ml/*` → Node.js proxy → Python services
 - **HIPAA audit logging**: All data changes tracked in `audit_logs` table
 
-### Debugging ML Services
+### Debugging ML Gateway
 
-To test individual ML services without the full stack:
 ```bash
-# Terminal 1: Start a specific ML service
-cd ml-backend && python3 unet_lesion_detector.py
+# Start the gateway
+cd ml-backend && python3 start_gateway.py
 
-# Terminal 2: Test with curl
-curl -X POST -F "file=@test_brain.nii.gz" http://localhost:5003/detect
-curl http://localhost:5003/health
+# Check health and model status
+curl http://localhost:5000/health
+
+# Test lesion detection
+curl -X POST -F "file=@test_brain.nii.gz" http://localhost:5000/api/ml/unet/detect
+
+# Test brain segmentation
+curl -X POST -F "file=@test_brain.nii.gz" http://localhost:5000/api/ml/synthseg/segment
+
+# Pre-load a model (optional warm-up)
+curl -X POST http://localhost:5000/models/sam3/load
 ```
+
+### MCP Tools (for AI agents)
+
+The gateway exposes MCP tools for agent integration:
+- `ml_detect_lesions` - UNet lesion detection
+- `ml_segment_brain` - SynthSeg parcellation
+- `ml_segment_interactive` - MedSAM2 with prompts
+- `ml_segment_text` - SAM3 with text prompt
+- `ml_health_check` - Gateway status
