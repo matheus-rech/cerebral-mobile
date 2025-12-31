@@ -629,7 +629,7 @@ export default function AnalysisScreen() {
 
                       return (
                         <Pressable
-                          key={index}
+                          key={structure.name}
                           onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             setSelectedRegion(isSelected ? null : structure.name);
