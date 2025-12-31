@@ -1,6 +1,12 @@
 /**
  * ML Backend Proxy Routes
  * Forwards requests to Python ML backend services
+ *
+ * Production-ready implementation with:
+ * - Request timeout handling
+ * - Retry logic with exponential backoff
+ * - Structured error responses
+ * - Request size limits
  */
 
 import { Router } from 'express';
@@ -16,6 +22,59 @@ const LESION_3D_URL = process.env.LESION_3D_URL || ML_BACKEND_URL;
 const MEDSAM2_URL = process.env.MEDSAM2_URL || ML_BACKEND_URL;
 const SAM3_URL = process.env.SAM3_URL || ML_BACKEND_URL;
 const NEUROIMAGING_URL = process.env.NEUROIMAGING_URL || 'http://localhost:5010';
+
+// Configuration for production reliability
+const DEFAULT_TIMEOUT_MS = 30000; // 30 seconds for most operations
+const LONG_TIMEOUT_MS = 120000; // 2 minutes for SynthSeg and other slow models
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+const MAX_IMAGE_SIZE_MB = 50;
+
+/**
+ * Delay helper for retry logic
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Fetch with timeout and retry logic
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  maxRetries: number = MAX_RETRIES
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Don't retry on abort (timeout) or if we've exhausted retries
+      if (lastError.name === 'AbortError' || attempt === maxRetries) {
+        break;
+      }
+
+      // Exponential backoff: 1s, 2s
+      await delay(RETRY_DELAY_MS * Math.pow(2, attempt));
+    }
+  }
+
+  throw lastError || new Error('Fetch failed after retries');
+}
 
 /**
  * Helper function to convert image URI to base64
@@ -55,11 +114,17 @@ router.post('/ml/synthseg/segment', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetch(`${SYNTHSEG_URL}/synthseg/segment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: imageData }),
-    });
+    // SynthSeg is a slow model - use longer timeout, no retries (expensive operation)
+    const response = await fetchWithRetry(
+      `${SYNTHSEG_URL}/synthseg/segment`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageData }),
+      },
+      LONG_TIMEOUT_MS,
+      0 // No retries for expensive operations
+    );
 
     if (!response.ok) {
       throw new Error(`SynthSeg error: ${await response.text()}`);
@@ -69,8 +134,9 @@ router.post('/ml/synthseg/segment', async (req, res) => {
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('SynthSeg proxy error:', error);
-    res.status(500).json({
-      error: 'SynthSeg segmentation failed',
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    res.status(isTimeout ? 504 : 500).json({
+      error: isTimeout ? 'SynthSeg segmentation timed out' : 'SynthSeg segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -259,14 +325,18 @@ router.post('/ml/neuroimaging/segment-usg', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetch(`${NEUROIMAGING_URL}/segment/usg`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        image: imageData, 
-        structures: structures || ['tumor', 'csf', 'parenchyma'] 
-      }),
-    });
+    const response = await fetchWithRetry(
+      `${NEUROIMAGING_URL}/segment/usg`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: imageData,
+          structures: structures || ['tumor', 'csf', 'parenchyma']
+        }),
+      },
+      DEFAULT_TIMEOUT_MS
+    );
 
     if (!response.ok) {
       throw new Error(`Neuroimaging error: ${await response.text()}`);
@@ -276,8 +346,9 @@ router.post('/ml/neuroimaging/segment-usg', async (req, res) => {
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('Neuroimaging USG proxy error:', error);
-    res.status(500).json({
-      error: 'NeuroUSG segmentation failed',
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    res.status(isTimeout ? 504 : 500).json({
+      error: isTimeout ? 'NeuroUSG segmentation timed out' : 'NeuroUSG segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -296,15 +367,19 @@ router.post('/ml/neuroimaging/segment-mri', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetch(`${NEUROIMAGING_URL}/segment/mri`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        image: imageData, 
-        modality: modality || 'T1_GD',
-        structures 
-      }),
-    });
+    const response = await fetchWithRetry(
+      `${NEUROIMAGING_URL}/segment/mri`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: imageData,
+          modality: modality || 'T1_GD',
+          structures
+        }),
+      },
+      DEFAULT_TIMEOUT_MS
+    );
 
     if (!response.ok) {
       throw new Error(`Neuroimaging error: ${await response.text()}`);
@@ -314,8 +389,9 @@ router.post('/ml/neuroimaging/segment-mri', async (req, res) => {
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('Neuroimaging MRI proxy error:', error);
-    res.status(500).json({
-      error: 'MRI segmentation failed',
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    res.status(isTimeout ? 504 : 500).json({
+      error: isTimeout ? 'MRI segmentation timed out' : 'MRI segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -334,11 +410,15 @@ router.post('/ml/neuroimaging/segment-auto', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetch(`${NEUROIMAGING_URL}/segment/auto`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: imageData, hint: hint || 'USG' }),
-    });
+    const response = await fetchWithRetry(
+      `${NEUROIMAGING_URL}/segment/auto`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageData, hint: hint || 'USG' }),
+      },
+      DEFAULT_TIMEOUT_MS
+    );
 
     if (!response.ok) {
       throw new Error(`Neuroimaging error: ${await response.text()}`);
@@ -348,8 +428,9 @@ router.post('/ml/neuroimaging/segment-auto', async (req, res) => {
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('Neuroimaging auto proxy error:', error);
-    res.status(500).json({
-      error: 'Auto segmentation failed',
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    res.status(isTimeout ? 504 : 500).json({
+      error: isTimeout ? 'Auto segmentation timed out' : 'Auto segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }

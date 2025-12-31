@@ -1,9 +1,65 @@
 /**
  * Neuroimaging Segmentation Service
  * Client-side API for brain USG and MRI segmentation with critical finding detection
+ *
+ * Production-ready implementation with:
+ * - Request timeout handling
+ * - Retry logic with exponential backoff
+ * - Structured error responses
  */
 
 import { getApiBaseUrl } from '@/constants/oauth';
+
+// Configuration for production reliability
+const DEFAULT_TIMEOUT_MS = 30000; // 30 seconds
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+
+/**
+ * Delay helper for retry logic
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Fetch with timeout and retry logic
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  maxRetries: number = MAX_RETRIES
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Don't retry on abort (timeout) or if we've exhausted retries
+      if (lastError.name === 'AbortError' || attempt === maxRetries) {
+        break;
+      }
+
+      // Exponential backoff: 1s, 2s
+      await delay(RETRY_DELAY_MS * Math.pow(2, attempt));
+    }
+  }
+
+  throw lastError || new Error('Fetch failed after retries');
+}
 
 // Types for the neuroimaging service
 export type Modality = 'USG' | 'T1_GD' | 'T2' | 'FLAIR';
@@ -111,17 +167,20 @@ export async function segmentNeuroUSG(
   imageUri: string,
   structures?: string[]
 ): Promise<SegmentationResult> {
-  const response = await fetch(`${getBaseUrl()}/api/ml/neuroimaging/segment-usg`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      imageUri, 
-      structures: structures || ['tumor', 'csf', 'parenchyma'] 
-    }),
-  });
+  const response = await fetchWithRetry(
+    `${getBaseUrl()}/api/ml/neuroimaging/segment-usg`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageUri,
+        structures: structures || ['tumor', 'csf', 'parenchyma']
+      }),
+    }
+  );
 
   if (!response.ok) {
-    const error = await response.json();
+    const error = await response.json().catch(() => ({}));
     throw new Error(error.message || 'NeuroUSG segmentation failed');
   }
 
@@ -136,14 +195,17 @@ export async function segmentMRI(
   modality: Modality = 'T1_GD',
   structures?: string[]
 ): Promise<SegmentationResult> {
-  const response = await fetch(`${getBaseUrl()}/api/ml/neuroimaging/segment-mri`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageUri, modality, structures }),
-  });
+  const response = await fetchWithRetry(
+    `${getBaseUrl()}/api/ml/neuroimaging/segment-mri`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUri, modality, structures }),
+    }
+  );
 
   if (!response.ok) {
-    const error = await response.json();
+    const error = await response.json().catch(() => ({}));
     throw new Error(error.message || 'MRI segmentation failed');
   }
 
@@ -157,14 +219,17 @@ export async function segmentAuto(
   imageUri: string,
   hint?: Modality
 ): Promise<SegmentationResult> {
-  const response = await fetch(`${getBaseUrl()}/api/ml/neuroimaging/segment-auto`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageUri, hint }),
-  });
+  const response = await fetchWithRetry(
+    `${getBaseUrl()}/api/ml/neuroimaging/segment-auto`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUri, hint }),
+    }
+  );
 
   if (!response.ok) {
-    const error = await response.json();
+    const error = await response.json().catch(() => ({}));
     throw new Error(error.message || 'Auto segmentation failed');
   }
 

@@ -4,6 +4,12 @@ Production Flask API for brain USG and MRI segmentation
 
 Integrates the zero-shot segmentation skill with critical finding detection
 Based on best practices from BIDS apps, RadiologyAI, and medical imaging pipelines
+
+Production-ready implementation with:
+- Structured logging with request IDs
+- Input validation and size limits
+- Error handling with structured responses
+- Health monitoring
 """
 
 import os
@@ -12,17 +18,32 @@ import json
 import base64
 import tempfile
 import traceback
+import logging
+import uuid
 from io import BytesIO
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
+from functools import wraps
 
 import cv2
 import numpy as np
 from PIL import Image
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Flask, request, jsonify, g
+
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger('neuroimaging_service')
+
+# Production configuration
+MAX_IMAGE_SIZE_MB = 50
+MAX_IMAGE_DIMENSION = 4096
+ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp']
 
 # Import the segmentation module
 from segment_neuroimaging import (
@@ -40,6 +61,72 @@ from segment_neuroimaging import (
 
 app = Flask(__name__)
 CORS(app)
+
+
+# Request ID middleware for tracing
+@app.before_request
+def before_request():
+    """Add request ID and log incoming requests."""
+    g.request_id = str(uuid.uuid4())[:8]
+    g.start_time = datetime.utcnow()
+    logger.info(f"[{g.request_id}] {request.method} {request.path}")
+
+
+@app.after_request
+def after_request(response):
+    """Log request completion with timing."""
+    if hasattr(g, 'start_time'):
+        duration = (datetime.utcnow() - g.start_time).total_seconds() * 1000
+        logger.info(f"[{g.request_id}] Completed in {duration:.1f}ms - Status {response.status_code}")
+    return response
+
+
+def validate_image_data(image_base64: str) -> Tuple[bool, Optional[str], Optional[np.ndarray]]:
+    """
+    Validate and decode base64 image data.
+
+    Returns: (success, error_message, decoded_image)
+    """
+    try:
+        # Check size limit (approximate - base64 is ~33% larger than binary)
+        size_mb = len(image_base64) * 0.75 / (1024 * 1024)
+        if size_mb > MAX_IMAGE_SIZE_MB:
+            return False, f'Image too large: {size_mb:.1f}MB exceeds {MAX_IMAGE_SIZE_MB}MB limit', None
+
+        # Decode base64
+        try:
+            image_data = base64.b64decode(image_base64)
+        except (base64.binascii.Error, TypeError):
+            return False, 'Invalid base64 encoding', None
+
+        # Validate image can be opened
+        nparr = np.frombuffer(image_data, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if image is None:
+            return False, 'Unable to decode image data', None
+
+        # Check dimensions
+        height, width = image.shape[:2]
+        if height > MAX_IMAGE_DIMENSION or width > MAX_IMAGE_DIMENSION:
+            return False, f'Image dimensions too large: {width}x{height} exceeds {MAX_IMAGE_DIMENSION}x{MAX_IMAGE_DIMENSION}', None
+
+        if height < 10 or width < 10:
+            return False, f'Image too small: {width}x{height} minimum is 10x10', None
+
+        return True, None, cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    except Exception as e:
+        logger.error(f"[{g.request_id}] Image validation error: {e}")
+        return False, f'Image validation failed: {str(e)}', None
+
+
+def log_error(error: Exception, context: str = ''):
+    """Log error with request context."""
+    request_id = getattr(g, 'request_id', 'unknown')
+    logger.error(f"[{request_id}] {context}: {type(error).__name__}: {error}")
+    if app.debug:
+        logger.error(traceback.format_exc())
 
 # Critical finding severity levels (inspired by RadiologyAI)
 class Severity(Enum):
@@ -264,7 +351,7 @@ def health_check():
 def segment_usg():
     """
     Segment brain ultrasound (neuroUSG) image.
-    
+
     Request body:
     {
         "image": "base64_encoded_image",
@@ -274,40 +361,48 @@ def segment_usg():
     """
     try:
         data = request.get_json()
-        
-        if 'image' not in data:
-            return jsonify({'error': 'No image provided'}), 400
-        
-        # Decode image
-        image_rgb = decode_image_base64(data['image'])
-        
+
+        if not data or 'image' not in data:
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
+
+        # Validate and decode image
+        valid, error_msg, image_rgb = validate_image_data(data['image'])
+        if not valid:
+            logger.warning(f"[{g.request_id}] Image validation failed: {error_msg}")
+            return jsonify({'success': False, 'error': error_msg}), 400
+
         # Save to temp file for processing
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
             temp_path = f.name
             cv2.imwrite(temp_path, cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR))
-        
+
         try:
             # Get parameters
             structures = data.get('structures', ['tumor', 'csf', 'parenchyma'])
             thresholds = data.get('thresholds')
-            
+
+            logger.info(f"[{g.request_id}] Processing NeuroUSG segmentation: structures={structures}")
+
             # Perform segmentation
             result = segment_neurousg(temp_path, structures, thresholds)
-            
+
             # Calculate total ROI area
             gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
             _, roi = cv2.threshold(gray, 15, 255, cv2.THRESH_BINARY)
             total_roi_area = int(np.sum(roi > 0))
-            
+
             # Analyze findings
             findings = analyze_segmentation(result, total_roi_area)
-            
+
             # Add annotations
             annotated = add_annotations(result.overlay, result.masks, "NeuroUSG Segmentation")
-            
+
             # Create comparison image
             comparison = create_comparison(image_rgb, annotated, "Brain Ultrasound Analysis")
-            
+
+            critical_count = sum(1 for f in findings if f.severity in ['critical', 'urgent'])
+            logger.info(f"[{g.request_id}] NeuroUSG complete: {len(result.masks)} structures, {critical_count} critical findings")
+
             # Encode results
             response = {
                 'success': True,
@@ -320,26 +415,28 @@ def segment_usg():
                 },
                 'structures_found': result.metadata['structures_found'],
                 'findings': [asdict(f) for f in findings],
-                'critical_count': sum(1 for f in findings if f.severity in ['critical', 'urgent']),
+                'critical_count': critical_count,
                 'metadata': {
                     'image_shape': list(result.metadata['image_shape']),
                     'thresholds_used': {k: list(v) for k, v in result.metadata['thresholds_used'].items()},
                     'total_roi_area': total_roi_area,
-                    'timestamp': datetime.utcnow().isoformat()
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'request_id': g.request_id
                 }
             }
-            
+
             return jsonify(response)
-            
+
         finally:
-            os.unlink(temp_path)
-            
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+
     except Exception as e:
-        traceback.print_exc()
+        log_error(e, 'NeuroUSG segmentation error')
         return jsonify({
             'success': False,
             'error': str(e),
-            'traceback': traceback.format_exc()
+            'request_id': getattr(g, 'request_id', 'unknown')
         }), 500
 
 
@@ -347,7 +444,7 @@ def segment_usg():
 def segment_mri():
     """
     Segment MRI image (T1-Gd, T2, or FLAIR).
-    
+
     Request body:
     {
         "image": "base64_encoded_image",
@@ -358,22 +455,25 @@ def segment_mri():
     """
     try:
         data = request.get_json()
-        
-        if 'image' not in data:
-            return jsonify({'error': 'No image provided'}), 400
-        
+
+        if not data or 'image' not in data:
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
+
         modality = data.get('modality', 'T1_GD').upper()
         if modality not in ['T1_GD', 'T2', 'FLAIR']:
-            return jsonify({'error': f'Invalid modality: {modality}'}), 400
-        
-        # Decode image
-        image_rgb = decode_image_base64(data['image'])
-        
+            return jsonify({'success': False, 'error': f'Invalid modality: {modality}'}), 400
+
+        # Validate and decode image
+        valid, error_msg, image_rgb = validate_image_data(data['image'])
+        if not valid:
+            logger.warning(f"[{g.request_id}] Image validation failed: {error_msg}")
+            return jsonify({'success': False, 'error': error_msg}), 400
+
         # Save to temp file
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
             temp_path = f.name
             cv2.imwrite(temp_path, cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR))
-        
+
         try:
             # Get parameters
             default_structures = {
@@ -383,27 +483,32 @@ def segment_mri():
             }
             structures = data.get('structures', default_structures.get(modality))
             thresholds = data.get('thresholds')
-            
+
+            logger.info(f"[{g.request_id}] Processing MRI segmentation: modality={modality}, structures={structures}")
+
             # Perform segmentation
             if modality == 'T1_GD':
                 result = segment_mri_t1gd(temp_path, structures, thresholds)
             else:
                 result = segment_brain_image(temp_path, modality, structures)
-            
+
             # Calculate total ROI area
             gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
             _, roi = cv2.threshold(gray, 15, 255, cv2.THRESH_BINARY)
             total_roi_area = int(np.sum(roi > 0))
-            
+
             # Analyze findings
             findings = analyze_segmentation(result, total_roi_area)
-            
+
             # Add annotations
             annotated = add_annotations(result.overlay, result.masks, f"{modality} Segmentation")
-            
+
             # Create comparison
             comparison = create_comparison(image_rgb, annotated, f"MRI {modality} Analysis")
-            
+
+            critical_count = sum(1 for f in findings if f.severity in ['critical', 'urgent'])
+            logger.info(f"[{g.request_id}] MRI {modality} complete: {len(result.masks)} structures, {critical_count} critical findings")
+
             # Encode results
             response = {
                 'success': True,
@@ -416,26 +521,28 @@ def segment_mri():
                 },
                 'structures_found': result.metadata['structures_found'],
                 'findings': [asdict(f) for f in findings],
-                'critical_count': sum(1 for f in findings if f.severity in ['critical', 'urgent']),
+                'critical_count': critical_count,
                 'metadata': {
                     'image_shape': list(result.metadata['image_shape']),
                     'thresholds_used': {k: list(v) for k, v in result.metadata['thresholds_used'].items()},
                     'total_roi_area': total_roi_area,
-                    'timestamp': datetime.utcnow().isoformat()
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'request_id': g.request_id
                 }
             }
-            
+
             return jsonify(response)
-            
+
         finally:
-            os.unlink(temp_path)
-            
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+
     except Exception as e:
-        traceback.print_exc()
+        log_error(e, f'MRI {modality} segmentation error')
         return jsonify({
             'success': False,
             'error': str(e),
-            'traceback': traceback.format_exc()
+            'request_id': getattr(g, 'request_id', 'unknown')
         }), 500
 
 
