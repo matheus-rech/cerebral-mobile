@@ -96,7 +96,7 @@ def validate_image_data(image_base64: str) -> Tuple[bool, Optional[str], Optiona
         # Decode base64
         try:
             image_data = base64.b64decode(image_base64)
-        except Exception:
+        except (base64.binascii.Error, TypeError):
             return False, 'Invalid base64 encoding', None
 
         # Validate image can be opened
