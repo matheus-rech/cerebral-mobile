@@ -25,5 +25,20 @@ flask-cors>=4.0.0
 # HTTP client
 requests>=2.31.0
 
+# FastAPI for unified gateway
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# System monitoring
+psutil>=5.9.0
+
+# MCP (Model Context Protocol) for AI agent integration
+mcp>=1.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+
 # Optional: SynthSeg (requires FreeSurfer 7.3+)
 # Install separately: https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall

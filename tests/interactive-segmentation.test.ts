@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
 describe('MedSAM2 Integration', () => {
-  it('should have correct service configuration', () => {
+  it('should have correct gateway configuration', () => {
     const config = {
       service: 'MedSAM2',
-      port: 5005,
+      gateway_port: 5000,
+      endpoint: '/api/ml/medsam2/segment',
       capabilities: [
         'Point-based segmentation',
         'Bounding box segmentation',
@@ -17,7 +18,8 @@ describe('MedSAM2 Integration', () => {
     };
 
     expect(config.service).toBe('MedSAM2');
-    expect(config.port).toBe(5005);
+    expect(config.gateway_port).toBe(5000);
+    expect(config.endpoint).toContain('medsam2');
     expect(config.capabilities).toHaveLength(7);
   });
 
@@ -93,10 +95,11 @@ describe('MedSAM2 Integration', () => {
 });
 
 describe('SAM3 Integration', () => {
-  it('should have correct service configuration', () => {
+  it('should have correct gateway configuration', () => {
     const config = {
       service: 'SAM3',
-      port: 5006,
+      gateway_port: 5000,
+      endpoint: '/api/ml/sam3/segment',
       capabilities: [
         'Single-click point segmentation',
         'Bounding box segmentation',
@@ -108,7 +111,8 @@ describe('SAM3 Integration', () => {
     };
 
     expect(config.service).toBe('SAM3');
-    expect(config.port).toBe(5006);
+    expect(config.gateway_port).toBe(5000);
+    expect(config.endpoint).toContain('sam3');
     expect(config.capabilities).toHaveLength(6);
   });
 

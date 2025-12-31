@@ -1,79 +1,69 @@
 /**
  * ML Backend Proxy Routes
- * Forwards requests to Python ML backend services
+ * Forwards requests to the Unified ML Gateway on port 5000
  *
- * Production-ready implementation with:
- * - Request timeout handling
- * - Retry logic with exponential backoff
- * - Structured error responses
- * - Request size limits
+ * The gateway handles:
+ * - Model lifecycle (load/unload)
+ * - Retries and timeouts transparently
+ * - Health monitoring
+ * - Error handling with structured responses
  */
 
 import { Router } from 'express';
 
 const router = Router();
 
-// ML Backend service URLs - All services use unified mock backend on port 5003
-const ML_BACKEND_URL = process.env.ML_BACKEND_URL || 'http://localhost:5003';
-const SYNTHSEG_URL = process.env.SYNTHSEG_URL || ML_BACKEND_URL;
-const MONAI_URL = process.env.MONAI_URL || ML_BACKEND_URL;
-const UNET_URL = process.env.UNET_URL || ML_BACKEND_URL;
-const LESION_3D_URL = process.env.LESION_3D_URL || ML_BACKEND_URL;
-const MEDSAM2_URL = process.env.MEDSAM2_URL || ML_BACKEND_URL;
-const SAM3_URL = process.env.SAM3_URL || ML_BACKEND_URL;
+// Unified ML Gateway URL - All ML requests go through this single endpoint
+const ML_GATEWAY_URL = process.env.ML_GATEWAY_URL || 'http://localhost:5000';
+
+// Legacy neuroimaging service (not yet migrated to gateway)
 const NEUROIMAGING_URL = process.env.NEUROIMAGING_URL || 'http://localhost:5010';
 
-// Configuration for production reliability
-const DEFAULT_TIMEOUT_MS = 30000; // 30 seconds for most operations
-const LONG_TIMEOUT_MS = 120000; // 2 minutes for SynthSeg and other slow models
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 1000;
-const MAX_IMAGE_SIZE_MB = 50;
-
 /**
- * Delay helper for retry logic
+ * Gateway error response format
  */
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+interface GatewayErrorResponse {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    model?: string;
+    retriable: boolean;
+    suggestion?: string;
+  };
 }
 
 /**
- * Fetch with timeout and retry logic
+ * Check if response is a gateway error
  */
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  timeoutMs: number = DEFAULT_TIMEOUT_MS,
-  maxRetries: number = MAX_RETRIES
-): Promise<Response> {
-  let lastError: Error | null = null;
+function isGatewayError(data: unknown): data is GatewayErrorResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'success' in data &&
+    data.success === false &&
+    'error' in data &&
+    typeof (data as GatewayErrorResponse).error === 'object'
+  );
+}
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-      return response;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      // Don't retry on abort (timeout) or if we've exhausted retries
-      if (lastError.name === 'AbortError' || attempt === maxRetries) {
-        break;
-      }
-
-      // Exponential backoff: 1s, 2s
-      await delay(RETRY_DELAY_MS * Math.pow(2, attempt));
-    }
-  }
-
-  throw lastError || new Error('Fetch failed after retries');
+/**
+ * Transform gateway error to client-friendly format
+ */
+function transformGatewayError(gatewayError: GatewayErrorResponse): {
+  error: string;
+  message: string;
+  code: string;
+  retriable: boolean;
+  suggestion?: string;
+} {
+  return {
+    error: `${gatewayError.error.model || 'ML'} service error`,
+    message: gatewayError.error.message,
+    code: gatewayError.error.code,
+    retriable: gatewayError.error.retriable,
+    suggestion: gatewayError.error.suggestion,
+  };
 }
 
 /**
@@ -104,6 +94,7 @@ async function imageUriToBase64(imageUri: string): Promise<string> {
 /**
  * POST /api/ml/synthseg/segment
  * Brain structure segmentation using SynthSeg
+ * Routes to: ML Gateway /api/ml/synthseg/segment
  */
 router.post('/ml/synthseg/segment', async (req, res) => {
   try {
@@ -114,30 +105,28 @@ router.post('/ml/synthseg/segment', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    // SynthSeg is a slow model - use longer timeout, no retries (expensive operation)
-    const response = await fetchWithRetry(
-      `${SYNTHSEG_URL}/synthseg/segment`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageData }),
-      },
-      LONG_TIMEOUT_MS,
-      0 // No retries for expensive operations
-    );
-
-    if (!response.ok) {
-      throw new Error(`SynthSeg error: ${await response.text()}`);
-    }
+    const response = await fetch(`${ML_GATEWAY_URL}/api/ml/synthseg/segment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: imageData }),
+    });
 
     const result = await response.json();
+
+    // Handle gateway error response format
+    if (isGatewayError(result)) {
+      const errorResponse = transformGatewayError(result);
+      return res.status(response.status >= 400 ? response.status : 500).json(errorResponse);
+    }
+
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('SynthSeg proxy error:', error);
-    const isTimeout = error instanceof Error && error.name === 'AbortError';
-    res.status(isTimeout ? 504 : 500).json({
-      error: isTimeout ? 'SynthSeg segmentation timed out' : 'SynthSeg segmentation failed',
+    res.status(500).json({
+      error: 'SynthSeg segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
+      code: 'PROXY_ERROR',
+      retriable: true,
     });
   }
 });
@@ -145,6 +134,7 @@ router.post('/ml/synthseg/segment', async (req, res) => {
 /**
  * POST /api/ml/unet/detect
  * Lesion detection using pretrained UNet
+ * Routes to: ML Gateway /api/ml/unet/detect
  */
 router.post('/ml/unet/detect', async (req, res) => {
   try {
@@ -155,23 +145,28 @@ router.post('/ml/unet/detect', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetch(`${UNET_URL}/detect`, {
+    const response = await fetch(`${ML_GATEWAY_URL}/api/ml/unet/detect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: imageData }),
     });
 
-    if (!response.ok) {
-      throw new Error(`UNet error: ${await response.text()}`);
+    const result = await response.json();
+
+    // Handle gateway error response format
+    if (isGatewayError(result)) {
+      const errorResponse = transformGatewayError(result);
+      return res.status(response.status >= 400 ? response.status : 500).json(errorResponse);
     }
 
-    const result = await response.json();
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('UNet proxy error:', error);
     res.status(500).json({
       error: 'UNet lesion detection failed',
       message: error instanceof Error ? error.message : 'Unknown error',
+      code: 'PROXY_ERROR',
+      retriable: true,
     });
   }
 });
@@ -179,6 +174,7 @@ router.post('/ml/unet/detect', async (req, res) => {
 /**
  * POST /api/ml/medsam2/segment
  * Interactive segmentation using MedSAM2
+ * Routes to: ML Gateway /api/ml/medsam2/segment
  */
 router.post('/ml/medsam2/segment', async (req, res) => {
   try {
@@ -189,23 +185,28 @@ router.post('/ml/medsam2/segment', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetch(`${MEDSAM2_URL}/segment`, {
+    const response = await fetch(`${ML_GATEWAY_URL}/api/ml/medsam2/segment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: imageData, prompts }),
     });
 
-    if (!response.ok) {
-      throw new Error(`MedSAM2 error: ${await response.text()}`);
+    const result = await response.json();
+
+    // Handle gateway error response format
+    if (isGatewayError(result)) {
+      const errorResponse = transformGatewayError(result);
+      return res.status(response.status >= 400 ? response.status : 500).json(errorResponse);
     }
 
-    const result = await response.json();
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('MedSAM2 proxy error:', error);
     res.status(500).json({
       error: 'MedSAM2 segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
+      code: 'PROXY_ERROR',
+      retriable: true,
     });
   }
 });
@@ -213,6 +214,7 @@ router.post('/ml/medsam2/segment', async (req, res) => {
 /**
  * POST /api/ml/sam3/segment-point
  * Point-based segmentation using SAM3
+ * Routes to: ML Gateway /api/ml/sam3/segment (with prompt type)
  */
 router.post('/ml/sam3/segment-point', async (req, res) => {
   try {
@@ -223,23 +225,28 @@ router.post('/ml/sam3/segment-point', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetch(`${SAM3_URL}/segment-point`, {
+    const response = await fetch(`${ML_GATEWAY_URL}/api/ml/sam3/segment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: imageData, point }),
+      body: JSON.stringify({ image: imageData, prompt_type: 'point', point }),
     });
 
-    if (!response.ok) {
-      throw new Error(`SAM3 error: ${await response.text()}`);
+    const result = await response.json();
+
+    // Handle gateway error response format
+    if (isGatewayError(result)) {
+      const errorResponse = transformGatewayError(result);
+      return res.status(response.status >= 400 ? response.status : 500).json(errorResponse);
     }
 
-    const result = await response.json();
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('SAM3 proxy error:', error);
     res.status(500).json({
       error: 'SAM3 segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
+      code: 'PROXY_ERROR',
+      retriable: true,
     });
   }
 });
@@ -247,6 +254,7 @@ router.post('/ml/sam3/segment-point', async (req, res) => {
 /**
  * POST /api/ml/sam3/segment-box
  * Box-based segmentation using SAM3
+ * Routes to: ML Gateway /api/ml/sam3/segment (with prompt type)
  */
 router.post('/ml/sam3/segment-box', async (req, res) => {
   try {
@@ -257,23 +265,28 @@ router.post('/ml/sam3/segment-box', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetch(`${SAM3_URL}/segment-box`, {
+    const response = await fetch(`${ML_GATEWAY_URL}/api/ml/sam3/segment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: imageData, box }),
+      body: JSON.stringify({ image: imageData, prompt_type: 'box', box }),
     });
 
-    if (!response.ok) {
-      throw new Error(`SAM3 error: ${await response.text()}`);
+    const result = await response.json();
+
+    // Handle gateway error response format
+    if (isGatewayError(result)) {
+      const errorResponse = transformGatewayError(result);
+      return res.status(response.status >= 400 ? response.status : 500).json(errorResponse);
     }
 
-    const result = await response.json();
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('SAM3 proxy error:', error);
     res.status(500).json({
       error: 'SAM3 segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
+      code: 'PROXY_ERROR',
+      retriable: true,
     });
   }
 });
@@ -281,6 +294,7 @@ router.post('/ml/sam3/segment-box', async (req, res) => {
 /**
  * POST /api/ml/sam3/segment-text
  * Text-based segmentation using SAM3
+ * Routes to: ML Gateway /api/ml/sam3/segment (with prompt type)
  */
 router.post('/ml/sam3/segment-text', async (req, res) => {
   try {
@@ -291,23 +305,28 @@ router.post('/ml/sam3/segment-text', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetch(`${SAM3_URL}/segment-text`, {
+    const response = await fetch(`${ML_GATEWAY_URL}/api/ml/sam3/segment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: imageData, text }),
+      body: JSON.stringify({ image: imageData, prompt_type: 'text', text }),
     });
 
-    if (!response.ok) {
-      throw new Error(`SAM3 error: ${await response.text()}`);
+    const result = await response.json();
+
+    // Handle gateway error response format
+    if (isGatewayError(result)) {
+      const errorResponse = transformGatewayError(result);
+      return res.status(response.status >= 400 ? response.status : 500).json(errorResponse);
     }
 
-    const result = await response.json();
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('SAM3 proxy error:', error);
     res.status(500).json({
       error: 'SAM3 segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
+      code: 'PROXY_ERROR',
+      retriable: true,
     });
   }
 });
@@ -325,18 +344,14 @@ router.post('/ml/neuroimaging/segment-usg', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetchWithRetry(
-      `${NEUROIMAGING_URL}/segment/usg`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image: imageData,
-          structures: structures || ['tumor', 'csf', 'parenchyma']
-        }),
-      },
-      DEFAULT_TIMEOUT_MS
-    );
+    const response = await fetch(`${NEUROIMAGING_URL}/segment/usg`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        image: imageData, 
+        structures: structures || ['tumor', 'csf', 'parenchyma'] 
+      }),
+    });
 
     if (!response.ok) {
       throw new Error(`Neuroimaging error: ${await response.text()}`);
@@ -346,9 +361,8 @@ router.post('/ml/neuroimaging/segment-usg', async (req, res) => {
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('Neuroimaging USG proxy error:', error);
-    const isTimeout = error instanceof Error && error.name === 'AbortError';
-    res.status(isTimeout ? 504 : 500).json({
-      error: isTimeout ? 'NeuroUSG segmentation timed out' : 'NeuroUSG segmentation failed',
+    res.status(500).json({
+      error: 'NeuroUSG segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -367,19 +381,15 @@ router.post('/ml/neuroimaging/segment-mri', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetchWithRetry(
-      `${NEUROIMAGING_URL}/segment/mri`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image: imageData,
-          modality: modality || 'T1_GD',
-          structures
-        }),
-      },
-      DEFAULT_TIMEOUT_MS
-    );
+    const response = await fetch(`${NEUROIMAGING_URL}/segment/mri`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        image: imageData, 
+        modality: modality || 'T1_GD',
+        structures 
+      }),
+    });
 
     if (!response.ok) {
       throw new Error(`Neuroimaging error: ${await response.text()}`);
@@ -389,9 +399,8 @@ router.post('/ml/neuroimaging/segment-mri', async (req, res) => {
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('Neuroimaging MRI proxy error:', error);
-    const isTimeout = error instanceof Error && error.name === 'AbortError';
-    res.status(isTimeout ? 504 : 500).json({
-      error: isTimeout ? 'MRI segmentation timed out' : 'MRI segmentation failed',
+    res.status(500).json({
+      error: 'MRI segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -410,15 +419,11 @@ router.post('/ml/neuroimaging/segment-auto', async (req, res) => {
 
     const imageData = await imageUriToBase64(imageUri);
 
-    const response = await fetchWithRetry(
-      `${NEUROIMAGING_URL}/segment/auto`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageData, hint: hint || 'USG' }),
-      },
-      DEFAULT_TIMEOUT_MS
-    );
+    const response = await fetch(`${NEUROIMAGING_URL}/segment/auto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: imageData, hint: hint || 'USG' }),
+    });
 
     if (!response.ok) {
       throw new Error(`Neuroimaging error: ${await response.text()}`);
@@ -428,9 +433,8 @@ router.post('/ml/neuroimaging/segment-auto', async (req, res) => {
     res.json({ ...result, imageUri, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('Neuroimaging auto proxy error:', error);
-    const isTimeout = error instanceof Error && error.name === 'AbortError';
-    res.status(isTimeout ? 504 : 500).json({
-      error: isTimeout ? 'Auto segmentation timed out' : 'Auto segmentation failed',
+    res.status(500).json({
+      error: 'Auto segmentation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -469,6 +473,7 @@ router.get('/ml/neuroimaging/thresholds', async (req, res) => {
 /**
  * POST /api/ml/lesion-3d/track
  * 3D lesion tracking across slices
+ * Routes to: ML Gateway /api/ml/lesion3d/track
  */
 router.post('/ml/lesion-3d/track', async (req, res) => {
   try {
@@ -477,70 +482,90 @@ router.post('/ml/lesion-3d/track', async (req, res) => {
       return res.status(400).json({ error: 'Volume URI is required' });
     }
 
-    const response = await fetch(`${LESION_3D_URL}/track-volume`, {
+    const response = await fetch(`${ML_GATEWAY_URL}/api/ml/lesion3d/track`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ volume_path: volumeUri, patient_id: patientId }),
     });
 
-    if (!response.ok) {
-      throw new Error(`3D Tracker error: ${await response.text()}`);
+    const result = await response.json();
+
+    // Handle gateway error response format
+    if (isGatewayError(result)) {
+      const errorResponse = transformGatewayError(result);
+      return res.status(response.status >= 400 ? response.status : 500).json(errorResponse);
     }
 
-    const result = await response.json();
     res.json({ ...result, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('3D Tracker proxy error:', error);
     res.status(500).json({
       error: '3D lesion tracking failed',
       message: error instanceof Error ? error.message : 'Unknown error',
+      code: 'PROXY_ERROR',
+      retriable: true,
     });
   }
 });
 
 /**
  * GET /api/ml/health
- * Check health of all ML backend services
+ * Check health of ML Gateway and all managed models
+ * Routes to: ML Gateway /health
  */
 router.get('/ml/health', async (req, res) => {
-  const services = [
-    { name: 'SynthSeg', url: `${SYNTHSEG_URL}/health` },
-    { name: 'MONAI', url: `${MONAI_URL}/health` },
-    { name: 'UNet', url: `${UNET_URL}/health` },
-    { name: 'Lesion3D', url: `${LESION_3D_URL}/health` },
-    { name: 'MedSAM2', url: `${MEDSAM2_URL}/health` },
-    { name: 'SAM3', url: `${SAM3_URL}/health` },
-    { name: 'Neuroimaging', url: `${NEUROIMAGING_URL}/health` },
-  ];
+  try {
+    // Check ML Gateway health
+    const gatewayResponse = await fetch(`${ML_GATEWAY_URL}/health`, {
+      signal: AbortSignal.timeout(5000),
+    });
 
-  const results = await Promise.allSettled(
-    services.map(async (service) => {
-      try {
-        const response = await fetch(service.url, { signal: AbortSignal.timeout(2000) });
-        const data = await response.json();
-        return { name: service.name, status: 'healthy', ...data };
-      } catch (error) {
-        return {
-          name: service.name,
-          status: 'unavailable',
-          error: error instanceof Error ? error.message : 'Unknown error',
-        };
+    const gatewayHealth = await gatewayResponse.json();
+
+    // Check legacy Neuroimaging service (not yet migrated)
+    let neuroimagingHealth = { status: 'unavailable' as const, error: 'Not checked' };
+    try {
+      const neuroimagingResponse = await fetch(`${NEUROIMAGING_URL}/health`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      if (neuroimagingResponse.ok) {
+        const data = await neuroimagingResponse.json();
+        neuroimagingHealth = { status: 'healthy' as const, ...data };
       }
-    })
-  );
+    } catch {
+      neuroimagingHealth = { status: 'unavailable' as const, error: 'Service not responding' };
+    }
 
-  const health = results.map((result, index) => ({
-    service: services[index].name,
-    ...(result.status === 'fulfilled' ? result.value : { status: 'error', error: result.reason }),
-  }));
+    // Combine gateway models with legacy services
+    const models = gatewayHealth.models || {};
+    const allHealthy = gatewayHealth.status === 'healthy';
 
-  const allHealthy = health.every((h) => h.status === 'healthy');
-
-  res.status(allHealthy ? 200 : 503).json({
-    overall: allHealthy ? 'healthy' : 'degraded',
-    services: health,
-    timestamp: new Date().toISOString(),
-  });
+    res.status(allHealthy ? 200 : 503).json({
+      overall: allHealthy ? 'healthy' : 'degraded',
+      gateway: {
+        status: gatewayHealth.status,
+        uptime_seconds: gatewayHealth.uptime_seconds,
+        url: ML_GATEWAY_URL,
+      },
+      models: {
+        ...models,
+        neuroimaging: neuroimagingHealth,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(503).json({
+      overall: 'unavailable',
+      gateway: {
+        status: 'unavailable',
+        url: ML_GATEWAY_URL,
+        error: error instanceof Error ? error.message : 'Gateway not responding',
+      },
+      models: {},
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 export default router;

@@ -77,3 +77,4 @@ ml-backend/weights/
 
 # Python virtual environment
 ml-backend/venv/
+__pycache__/

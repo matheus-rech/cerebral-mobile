@@ -6,10 +6,10 @@
 import { describe, it, expect } from 'vitest';
 
 describe('ML Backend Integration', () => {
-  describe('MONAI Service', () => {
-    it('should define MONAI service endpoint', () => {
-      const endpoint = 'http://localhost:5001';
-      expect(endpoint).toContain('5001');
+  describe('ML Gateway', () => {
+    it('should define unified gateway endpoint', () => {
+      const endpoint = 'http://localhost:5000';
+      expect(endpoint).toContain('5000');
     });
 
     it('should define health check endpoint', () => {
@@ -27,7 +27,7 @@ describe('ML Backend Integration', () => {
       expect(segmentEndpoint).toBe('/segment');
     });
 
-    it('should handle MONAI response structure', () => {
+    it('should handle gateway response structure', () => {
       const response = {
         success: true,
         volumes: {
@@ -40,6 +40,7 @@ describe('ML Backend Integration', () => {
           white_matter: 44.4,
         },
         total_brain_volume: 900000,
+        inference_time_ms: 1500,
       };
 
       expect(response.success).toBe(true);
@@ -47,12 +48,30 @@ describe('ML Backend Integration', () => {
       expect(response.percentages).toBeDefined();
       expect(response.total_brain_volume).toBeGreaterThan(0);
     });
+
+    it('should handle gateway error response format', () => {
+      const errorResponse = {
+        success: false,
+        error: {
+          code: 'TIMEOUT',
+          message: 'Inference exceeded timeout',
+          model: 'sam3',
+          retriable: true,
+          suggestion: 'Try a smaller image',
+        },
+      };
+
+      expect(errorResponse.success).toBe(false);
+      expect(errorResponse.error.code).toBe('TIMEOUT');
+      expect(errorResponse.error.retriable).toBe(true);
+    });
   });
 
   describe('SynthSeg Service', () => {
-    it('should define SynthSeg service endpoint', () => {
-      const endpoint = 'http://localhost:5002';
-      expect(endpoint).toContain('5002');
+    it('should define SynthSeg gateway endpoint', () => {
+      const endpoint = 'http://localhost:5000/api/ml/synthseg/segment';
+      expect(endpoint).toContain('5000');
+      expect(endpoint).toContain('synthseg');
     });
 
     it('should define structures endpoint', () => {

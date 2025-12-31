@@ -6,9 +6,10 @@ import { describe, it, expect } from 'vitest';
 
 describe('UNet Lesion Detector', () => {
   describe('Service Configuration', () => {
-    it('should define UNet service endpoint', () => {
-      const endpoint = 'http://localhost:5003';
-      expect(endpoint).toContain('5003');
+    it('should define UNet gateway endpoint', () => {
+      const endpoint = 'http://localhost:5000/api/ml/unet/detect';
+      expect(endpoint).toContain('5000');
+      expect(endpoint).toContain('unet');
     });
 
     it('should define detect endpoint', () => {
