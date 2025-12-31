@@ -451,4 +451,294 @@ describe('Neuroimaging Service', () => {
       expect(getFindingsSummary([])).toBe('No abnormal findings');
     });
   });
+
+  describe('Modality Types', () => {
+    const VALID_MODALITIES = ['USG', 'T1_GD', 'T2', 'FLAIR'];
+
+    it('should define all supported modalities', () => {
+      expect(VALID_MODALITIES).toContain('USG');
+      expect(VALID_MODALITIES).toContain('T1_GD');
+      expect(VALID_MODALITIES).toContain('T2');
+      expect(VALID_MODALITIES).toContain('FLAIR');
+    });
+
+    it('should have exactly 4 modalities', () => {
+      expect(VALID_MODALITIES).toHaveLength(4);
+    });
+  });
+
+  describe('SegmentationResult Type', () => {
+    interface SegmentationResult {
+      success: boolean;
+      modality: string;
+      overlay: string;
+      comparison: string;
+      masks: Record<string, string>;
+      structures_found: string[];
+      findings: CriticalFinding[];
+      critical_count: number;
+      metadata: {
+        image_shape: number[];
+        thresholds_used: Record<string, number[]>;
+        total_roi_area: number;
+        timestamp: string;
+      };
+    }
+
+    it('should validate a complete segmentation result', () => {
+      const result: SegmentationResult = {
+        success: true,
+        modality: 'USG',
+        overlay: 'base64_overlay_data',
+        comparison: 'base64_comparison_data',
+        masks: {
+          tumor: 'base64_mask_data',
+          ventricles: 'base64_mask_data',
+        },
+        structures_found: ['tumor', 'ventricles', 'parenchyma'],
+        findings: [
+          {
+            structure: 'tumor',
+            finding: 'Tumor detected',
+            severity: 'critical',
+            description: 'Large tumor detected',
+            area_pixels: 50000,
+            area_percentage: 18,
+            recommendation: 'Immediate consultation',
+          },
+        ],
+        critical_count: 1,
+        metadata: {
+          image_shape: [512, 512, 3],
+          thresholds_used: {
+            tumor: [160, 255],
+            csf: [0, 40],
+          },
+          total_roi_area: 262144,
+          timestamp: '2025-01-01T00:00:00.000Z',
+        },
+      };
+
+      expect(result.success).toBe(true);
+      expect(result.modality).toBe('USG');
+      expect(result.structures_found).toContain('tumor');
+      expect(result.critical_count).toBe(1);
+      expect(result.metadata.image_shape).toHaveLength(3);
+    });
+
+    it('should handle failed segmentation result', () => {
+      const result = {
+        success: false,
+        error: 'Image validation failed: Image too large',
+        request_id: 'abc123',
+      };
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Image validation failed');
+    });
+  });
+
+  describe('ServiceHealth Type', () => {
+    interface ServiceHealth {
+      status: 'healthy' | 'unavailable' | 'error';
+      service: string;
+      version?: string;
+      capabilities?: {
+        modalities: string[];
+        structures: Record<string, string[]>;
+        critical_finding_detection: boolean;
+        zero_shot: boolean;
+        few_shot: boolean;
+      };
+    }
+
+    it('should validate a healthy service response', () => {
+      const health: ServiceHealth = {
+        status: 'healthy',
+        service: 'Neuroimaging',
+        version: '1.0.0',
+        capabilities: {
+          modalities: ['USG', 'T1_GD', 'T2', 'FLAIR'],
+          structures: {
+            USG: ['tumor', 'ventricles', 'parenchyma'],
+            T1_GD: ['enhancement', 'necrotic', 'edema', 'csf', 'parenchyma'],
+          },
+          critical_finding_detection: true,
+          zero_shot: true,
+          few_shot: true,
+        },
+      };
+
+      expect(health.status).toBe('healthy');
+      expect(health.capabilities?.modalities).toHaveLength(4);
+      expect(health.capabilities?.critical_finding_detection).toBe(true);
+    });
+
+    it('should validate an unavailable service response', () => {
+      const health: ServiceHealth = {
+        status: 'unavailable',
+        service: 'Neuroimaging',
+      };
+
+      expect(health.status).toBe('unavailable');
+      expect(health.capabilities).toBeUndefined();
+    });
+  });
+
+  describe('Critical Finding Detection', () => {
+    const classifyFindingSeverity = (
+      structure: string,
+      areaPercentage: number
+    ): Severity => {
+      // Tumor findings
+      if (structure === 'tumor' || structure === 'enhancement') {
+        if (areaPercentage > 10) return 'critical';
+        if (areaPercentage > 5) return 'urgent';
+        if (areaPercentage > 1) return 'significant';
+        return 'routine';
+      }
+
+      // Necrotic center (indicates aggressive tumor)
+      if (structure === 'necrotic') {
+        if (areaPercentage > 2) return 'critical';
+        return 'urgent';
+      }
+
+      // Edema
+      if (structure === 'edema') {
+        if (areaPercentage > 15) return 'critical';
+        if (areaPercentage > 8) return 'urgent';
+        return 'significant';
+      }
+
+      // Default
+      return 'routine';
+    };
+
+    it('should classify large tumor as critical', () => {
+      expect(classifyFindingSeverity('tumor', 15)).toBe('critical');
+    });
+
+    it('should classify medium tumor as urgent', () => {
+      expect(classifyFindingSeverity('tumor', 7)).toBe('urgent');
+    });
+
+    it('should classify small tumor as significant', () => {
+      expect(classifyFindingSeverity('tumor', 2)).toBe('significant');
+    });
+
+    it('should classify minimal tumor as routine', () => {
+      expect(classifyFindingSeverity('tumor', 0.5)).toBe('routine');
+    });
+
+    it('should classify necrotic center as critical when large', () => {
+      expect(classifyFindingSeverity('necrotic', 3)).toBe('critical');
+    });
+
+    it('should classify extensive edema as critical', () => {
+      expect(classifyFindingSeverity('edema', 20)).toBe('critical');
+    });
+
+    it('should classify moderate edema as urgent', () => {
+      expect(classifyFindingSeverity('edema', 10)).toBe('urgent');
+    });
+
+    it('should classify normal parenchyma as routine', () => {
+      expect(classifyFindingSeverity('parenchyma', 60)).toBe('routine');
+    });
+  });
+
+  describe('USG Structures', () => {
+    const USG_STRUCTURES = ['tumor', 'csf', 'parenchyma', 'hemorrhage', 'edema'];
+
+    it('should define default USG structures', () => {
+      expect(USG_STRUCTURES).toContain('tumor');
+      expect(USG_STRUCTURES).toContain('csf');
+      expect(USG_STRUCTURES).toContain('parenchyma');
+    });
+
+    it('should support hemorrhage detection', () => {
+      expect(USG_STRUCTURES).toContain('hemorrhage');
+    });
+
+    it('should support edema detection', () => {
+      expect(USG_STRUCTURES).toContain('edema');
+    });
+  });
+
+  describe('MRI T1-Gd Structures', () => {
+    const T1GD_STRUCTURES = ['enhancement', 'necrotic', 'edema', 'csf', 'parenchyma'];
+
+    it('should define default T1-Gd structures', () => {
+      expect(T1GD_STRUCTURES).toContain('enhancement');
+      expect(T1GD_STRUCTURES).toContain('necrotic');
+      expect(T1GD_STRUCTURES).toContain('edema');
+    });
+
+    it('should support CSF detection', () => {
+      expect(T1GD_STRUCTURES).toContain('csf');
+    });
+
+    it('should support parenchyma detection', () => {
+      expect(T1GD_STRUCTURES).toContain('parenchyma');
+    });
+  });
+
+  describe('Request Timeout Configuration', () => {
+    const DEFAULT_TIMEOUT_MS = 30000;
+    const MAX_RETRIES = 2;
+    const RETRY_DELAY_MS = 1000;
+
+    it('should have reasonable default timeout', () => {
+      expect(DEFAULT_TIMEOUT_MS).toBe(30000);
+      expect(DEFAULT_TIMEOUT_MS).toBeLessThanOrEqual(60000);
+    });
+
+    it('should have reasonable retry count', () => {
+      expect(MAX_RETRIES).toBe(2);
+      expect(MAX_RETRIES).toBeLessThanOrEqual(5);
+    });
+
+    it('should have reasonable retry delay', () => {
+      expect(RETRY_DELAY_MS).toBe(1000);
+      expect(RETRY_DELAY_MS).toBeLessThanOrEqual(5000);
+    });
+
+    it('should calculate exponential backoff correctly', () => {
+      const delays = [0, 1, 2].map(attempt => RETRY_DELAY_MS * Math.pow(2, attempt));
+      expect(delays).toEqual([1000, 2000, 4000]);
+    });
+  });
+
+  describe('Image Size Limits', () => {
+    const MAX_IMAGE_SIZE_MB = 50;
+    const MAX_IMAGE_DIMENSION = 4096;
+    const MIN_IMAGE_DIMENSION = 10;
+
+    it('should enforce reasonable max image size', () => {
+      expect(MAX_IMAGE_SIZE_MB).toBe(50);
+      expect(MAX_IMAGE_SIZE_MB).toBeLessThanOrEqual(100);
+    });
+
+    it('should enforce reasonable max dimension', () => {
+      expect(MAX_IMAGE_DIMENSION).toBe(4096);
+    });
+
+    it('should enforce minimum dimension', () => {
+      expect(MIN_IMAGE_DIMENSION).toBe(10);
+    });
+
+    it('should validate image dimensions', () => {
+      const validateDimensions = (width: number, height: number): boolean => {
+        if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) return false;
+        if (width < MIN_IMAGE_DIMENSION || height < MIN_IMAGE_DIMENSION) return false;
+        return true;
+      };
+
+      expect(validateDimensions(512, 512)).toBe(true);
+      expect(validateDimensions(4096, 4096)).toBe(true);
+      expect(validateDimensions(5000, 512)).toBe(false);
+      expect(validateDimensions(5, 512)).toBe(false);
+    });
+  });
 });

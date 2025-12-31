@@ -12,6 +12,27 @@ import { useColors } from "@/hooks/use-colors";
 import { saveAnalysisToHistory } from "@/services/storage";
 import type { MRIAnalysisReport } from "@/types/mri";
 
+/**
+ * Get the API base URL for the current environment
+ * Handles port mapping for different deployment scenarios
+ */
+function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    // Handle cloud-hosted development environments (e.g., Manus)
+    if (hostname.includes('8081-')) {
+      const apiHostname = hostname.replace('8081-', '3000-');
+      return `${window.location.protocol}//${apiHostname}`;
+    }
+    // Handle local development with different ports
+    if (window.location.port === '8081') {
+      return `${window.location.protocol}//${window.location.hostname}:3000`;
+    }
+    return window.location.origin;
+  }
+  return 'http://localhost:3000';
+}
+
 // ML Model definitions
 const ML_MODELS = [
   {
@@ -216,22 +237,6 @@ export default function AnalysisScreen() {
         return;
       }
 
-      // Helper function for API base URL
-      function getApiBaseUrl() {
-        if (typeof window !== 'undefined') {
-          const hostname = window.location.hostname;
-          if (hostname.includes('8081-')) {
-            const apiHostname = hostname.replace('8081-', '3000-');
-            return `${window.location.protocol}//${apiHostname}`;
-          }
-          if (window.location.port === '8081') {
-            return `${window.location.protocol}//${window.location.hostname}:3000`;
-          }
-          return window.location.origin;
-        }
-        return 'http://localhost:3000';
-      }
-
       // Call the ML backend through server proxy
       // Use relative URL so it works both locally and via proxy
       const apiUrl = `/api/ml/${selectedModel.id}${selectedModel.endpoint}`;
@@ -239,22 +244,6 @@ export default function AnalysisScreen() {
       // For NIfTI files, use a sample 2D image for analysis
       // NIfTI files need to be processed server-side
       let base64: string;
-      
-      // Get API base URL for local sample images (legacy models)
-      const getApiBaseUrlLegacy = () => {
-        if (typeof window !== 'undefined') {
-          const hostname = window.location.hostname;
-          if (hostname.includes('8081-')) {
-            const apiHostname = hostname.replace('8081-', '3000-');
-            return `${window.location.protocol}//${apiHostname}`;
-          }
-          if (window.location.port === '8081') {
-            return `${window.location.protocol}//${window.location.hostname}:3000`;
-          }
-          return window.location.origin;
-        }
-        return 'http://localhost:3000';
-      };
 
       if (params.imageUri.endsWith('.nii.gz') || params.imageUri.endsWith('.nii')) {
         // Use local sample brain MRI image for NIfTI files
@@ -557,6 +546,126 @@ export default function AnalysisScreen() {
                 </Text>
               </View>
             </View>
+
+            {/* Neuroimaging Segmentation Overlay (NeuroUSG and NeuroMRI) */}
+            {synthSegOverlay && (selectedModel.id === 'neurousg' || selectedModel.id === 'neuromri') && (
+              <View className="px-4">
+                <View className="bg-surface rounded-2xl p-4 border border-border">
+                  <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-lg font-bold text-foreground">
+                      {selectedModel.id === 'neurousg' ? '🧠 Brain USG Segmentation' : '🧠 MRI Segmentation'}
+                    </Text>
+                    {report?.critical_count ? (
+                      <View className="bg-red-500/20 px-2 py-1 rounded-full">
+                        <Text className="text-xs text-red-500 font-semibold">
+                          {report.critical_count} Critical
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <View className="rounded-xl overflow-hidden" style={{ height: 320 }}>
+                    <Image
+                      source={{ uri: synthSegOverlay }}
+                      style={{ width: '100%', height: '100%' }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                  {/* Structure Legend */}
+                  <View className="mt-3 flex-row flex-wrap gap-2 justify-center">
+                    {synthSegStructures.slice(0, 6).map((structure: any, index: number) => {
+                      const isSelected = selectedRegion === structure.name;
+                      return (
+                        <Pressable
+                          key={index}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSelectedRegion(isSelected ? null : structure.name);
+                          }}
+                          style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                        >
+                          <View className={`flex-row items-center gap-1 px-2 py-1 rounded-full ${isSelected ? 'bg-primary/20' : ''}`}>
+                            <View
+                              className={`w-3 h-3 rounded-full ${isSelected ? 'border-2 border-primary' : ''}`}
+                              style={{ backgroundColor: structure.color || '#808080' }}
+                            />
+                            <Text className={`text-xs capitalize ${isSelected ? 'text-primary font-semibold' : 'text-muted'}`}>
+                              {structure.name}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Neuroimaging Findings List (NeuroUSG and NeuroMRI) */}
+            {synthSegStructures.length > 0 && (selectedModel.id === 'neurousg' || selectedModel.id === 'neuromri') && (
+              <View className="px-4">
+                <View className="bg-surface rounded-2xl p-4 border border-border">
+                  <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-lg font-bold text-foreground">📋 Segmentation Findings</Text>
+                    {selectedRegion && (
+                      <Pressable
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setSelectedRegion(null);
+                        }}
+                        style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                      >
+                        <Text className="text-xs text-primary">Clear Selection</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                  <View className="gap-2">
+                    {synthSegStructures.map((structure: any, index: number) => {
+                      const isSelected = selectedRegion === structure.name;
+                      const statusColor =
+                        structure.status === 'critical' ? 'bg-red-500/20 text-red-500' :
+                        structure.status === 'urgent' ? 'bg-orange-500/20 text-orange-500' :
+                        structure.status === 'significant' ? 'bg-yellow-500/20 text-yellow-500' :
+                        'bg-green-500/20 text-green-500';
+
+                      return (
+                        <Pressable
+                          key={index}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSelectedRegion(isSelected ? null : structure.name);
+                          }}
+                          style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                        >
+                          <View
+                            className={`flex-row items-center justify-between rounded-lg p-2 border ${isSelected ? 'bg-primary/10 border-primary' : 'bg-background border-border'}`}
+                          >
+                            <View className="flex-row items-center gap-2 flex-1">
+                              <View
+                                className={`w-4 h-4 rounded-full ${isSelected ? 'border-2 border-primary' : ''}`}
+                                style={{ backgroundColor: structure.color || '#808080' }}
+                              />
+                              <Text className={`text-sm flex-1 capitalize ${isSelected ? 'text-primary font-semibold' : 'text-foreground'}`} numberOfLines={1}>
+                                {structure.name}
+                              </Text>
+                            </View>
+                            <View className="flex-row items-center gap-3">
+                              <Text className={`text-sm font-semibold ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                                {structure.percentile?.toFixed(1) || '0'}%
+                              </Text>
+                              <View className={`px-2 py-0.5 rounded ${statusColor}`}>
+                                <Text className={`text-xs font-semibold capitalize ${statusColor.split(' ')[1]}`}>
+                                  {structure.status || 'routine'}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              </View>
+            )}
 
             {/* SynthSeg Segmentation Overlay */}
             {synthSegOverlay && selectedModel.id === 'synthseg' && (
