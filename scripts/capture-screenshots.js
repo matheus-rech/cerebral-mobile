@@ -15,17 +15,22 @@ const VIEWPORTS = {
   desktop: { width: 1440, height: 900, deviceScaleFactor: 1, isMobile: false },
 };
 
+// Use a real glioblastoma MRI from Wikimedia Commons as the test image.
+// Served by Expo from /public/ at the root path (/samples/..., not /public/samples/...).
+const REAL_MRI = encodeURIComponent('http://localhost:8081/samples/real/glioblastoma_t1_contrast.jpg');
+const REAL_USG = encodeURIComponent('http://localhost:8081/samples/real/cranial_us_hemorrhage.jpg');
+
 const ROUTES = [
   { path: '/', name: '01-home' },
-  { path: '/(tabs)/datasets', name: '02-datasets' },
-  { path: '/(tabs)/history', name: '03-history' },
-  { path: '/(tabs)/ml-settings', name: '04-ml-settings' },
-  { path: '/analysis?imageUri=/public/samples/brain_mri_sample.jpg&model=neurousg', name: '05-analysis-neurousg' },
-  { path: '/analysis?imageUri=/public/samples/brain_mri_sample.jpg&model=neuromri', name: '06-analysis-neuromri' },
-  { path: '/analysis?imageUri=/public/samples/brain_mri_sample.jpg&model=unet', name: '07-analysis-unet' },
-  { path: '/analysis?imageUri=/public/samples/brain_mri_sample.jpg&model=synthseg', name: '08-analysis-synthseg' },
-  { path: '/interactive-segment?imageUri=/public/samples/brain_mri_sample.jpg&model=medsam2', name: '09-interactive-medsam2' },
-  { path: '/model-comparison?imageUri=/public/samples/brain_mri_sample.jpg', name: '10-model-comparison' },
+  { path: '/datasets', name: '02-datasets' },
+  { path: '/history', name: '03-history' },
+  { path: '/ml-settings', name: '04-ml-settings' },
+  { path: `/analysis?imageUri=${REAL_USG}&model=neurousg`, name: '05-analysis-neurousg' },
+  { path: `/analysis?imageUri=${REAL_MRI}&model=neuromri`, name: '06-analysis-neuromri' },
+  { path: `/analysis?imageUri=${REAL_MRI}&model=unet`, name: '07-analysis-unet' },
+  { path: `/analysis?imageUri=${REAL_MRI}&model=synthseg`, name: '08-analysis-synthseg' },
+  { path: `/interactive-segment?imageUri=${REAL_MRI}&model=medsam2`, name: '09-interactive-medsam2' },
+  { path: `/model-comparison?imageUri=${REAL_MRI}`, name: '10-model-comparison' },
 ];
 
 async function capture() {
@@ -50,8 +55,14 @@ async function capture() {
       try {
         console.log(`  → ${vpName.padEnd(8)} ${route.name}`);
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+        // Wait for Expo Router client-side hydration to replace the SSR fallback
+        await page.waitForFunction(
+          () => !document.body.innerText.includes('Unmatched Route') &&
+                !document.body.innerText.includes('Page could not be found'),
+          { timeout: 10000 }
+        ).catch(() => {/* keep going even if it never resolves */});
         // Let any client-side rendering/animation settle
-        await new Promise(r => setTimeout(r, 1500));
+        await new Promise(r => setTimeout(r, 2500));
         await page.screenshot({ path: filepath, fullPage: true });
         success++;
       } catch (err) {
