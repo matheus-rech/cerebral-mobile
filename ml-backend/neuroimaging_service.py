@@ -31,6 +31,7 @@ import cv2
 import numpy as np
 from PIL import Image
 from flask import Flask, request, jsonify, g
+from flask_cors import CORS
 
 # Configure structured logging
 logging.basicConfig(
