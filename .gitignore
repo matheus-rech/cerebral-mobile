@@ -77,3 +77,8 @@ ml-backend/weights/
 
 # Python virtual environment
 ml-backend/venv/
+
+# Cache directories
+__pycache__/
+*.pyc
+.netlify/
